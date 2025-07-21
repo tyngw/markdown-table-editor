@@ -693,7 +693,7 @@
                     </div>
                     <div class="resize-handle" 
                          onclick="event.stopPropagation()" 
-                         onmousedown="startColumnResize(event, ${index})"></div>
+                         onmousedown="event.stopPropagation(); startColumnResize(event, ${index})"></div>
                 </th>`;
             });
             
@@ -971,11 +971,16 @@
         }
 
         function stopColumnResize() {
-            isResizing = false;
-            resizeColumn = -1;
             document.removeEventListener('mousemove', handleColumnResize);
             document.removeEventListener('mouseup', stopColumnResize);
             document.body.style.userSelect = '';
+            
+            // Add a small delay before resetting isResizing to prevent click events
+            // that might fire immediately after mouseup
+            setTimeout(() => {
+                isResizing = false;
+                resizeColumn = -1;
+            }, 10);
         }
 
         // Setup table event listeners
@@ -1304,6 +1309,11 @@
 
         // Handle column header click (selection vs sorting)
         function handleColumnHeaderClick(columnIndex, event) {
+            // Check if we're currently resizing - if so, don't handle the click
+            if (isResizing) {
+                return;
+            }
+            
             // Check if the click is on a resize handle - if so, don't handle the click
             if (event.target.classList.contains('resize-handle')) {
                 return;
@@ -1693,6 +1703,11 @@
         }
 
         function startColumnDrag(colIndex, event) {
+            // Check if we're currently resizing - if so, don't handle the drag
+            if (isResizing) {
+                return;
+            }
+            
             // Check if the click is on the resize handle
             if (event.target.classList.contains('resize-handle')) {
                 // Don't interfere with resize operation
