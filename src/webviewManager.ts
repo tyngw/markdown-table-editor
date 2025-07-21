@@ -50,7 +50,7 @@ export class WebviewManager {
         // Create new panel
         const panel = vscode.window.createWebviewPanel(
             'markdownTableEditor',
-            `Table Editor - ${path.basename(uri.fsPath)}`,
+            `${path.basename(uri.fsPath)} - Table Editor`,
             vscode.ViewColumn.Two,
             {
                 enableScripts: true,
