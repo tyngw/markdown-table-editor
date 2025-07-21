@@ -842,4 +842,403 @@ export class TableDataManager {
         
         return emptyCells;
     }
+
+    // Advanced Sorting Operations
+
+    /**
+     * Sort state interface
+     */
+    private sortState: {
+        columnIndex: number;
+        direction: 'asc' | 'desc';
+        dataType: 'string' | 'number' | 'date' | 'auto';
+    } | null = null;
+
+    /**
+     * Advanced sort with custom comparator
+     */
+    sortByColumnAdvanced(
+        columnIndex: number, 
+        direction: 'asc' | 'desc',
+        options?: {
+            dataType?: 'string' | 'number' | 'date' | 'auto';
+            caseSensitive?: boolean;
+            locale?: string;
+            customComparator?: (a: string, b: string) => number;
+        }
+    ): void {
+        if (columnIndex < 0 || columnIndex >= this.tableData.headers.length) {
+            throw new Error(`Invalid column index: ${columnIndex}`);
+        }
+
+        const opts = {
+            dataType: 'auto' as const,
+            caseSensitive: true,
+            locale: 'en-US',
+            ...options
+        };
+
+        // Determine data type if auto
+        let actualDataType = opts.dataType;
+        if (actualDataType === 'auto') {
+            actualDataType = this.detectColumnDataType(columnIndex);
+        }
+
+        // Store sort state
+        this.sortState = {
+            columnIndex,
+            direction,
+            dataType: actualDataType
+        };
+
+        this.tableData.rows.sort((a, b) => {
+            const valueA = a[columnIndex] || '';
+            const valueB = b[columnIndex] || '';
+
+            let comparison = 0;
+
+            if (opts.customComparator) {
+                comparison = opts.customComparator(valueA, valueB);
+            } else {
+                comparison = this.compareValues(valueA, valueB, actualDataType as 'string' | 'number' | 'date', opts);
+            }
+
+            return direction === 'asc' ? comparison : -comparison;
+        });
+
+        this.updateMetadata();
+        this.notifyChange();
+    }
+
+    /**
+     * Multi-column sort
+     */
+    sortByMultipleColumns(
+        sortCriteria: Array<{
+            columnIndex: number;
+            direction: 'asc' | 'desc';
+            dataType?: 'string' | 'number' | 'date' | 'auto';
+        }>
+    ): void {
+        if (sortCriteria.length === 0) {
+            return;
+        }
+
+        // Validate all column indices
+        for (const criteria of sortCriteria) {
+            if (criteria.columnIndex < 0 || criteria.columnIndex >= this.tableData.headers.length) {
+                throw new Error(`Invalid column index: ${criteria.columnIndex}`);
+            }
+        }
+
+        // Determine data types for auto detection
+        const processedCriteria = sortCriteria.map(criteria => ({
+            ...criteria,
+            dataType: criteria.dataType === 'auto' || !criteria.dataType 
+                ? this.detectColumnDataType(criteria.columnIndex)
+                : criteria.dataType
+        }));
+
+        this.tableData.rows.sort((a, b) => {
+            for (const criteria of processedCriteria) {
+                const valueA = a[criteria.columnIndex] || '';
+                const valueB = b[criteria.columnIndex] || '';
+
+                const comparison = this.compareValues(valueA, valueB, criteria.dataType, {
+                    caseSensitive: true,
+                    locale: 'en-US'
+                });
+
+                if (comparison !== 0) {
+                    return criteria.direction === 'asc' ? comparison : -comparison;
+                }
+            }
+            return 0;
+        });
+
+        // Store primary sort state
+        this.sortState = {
+            columnIndex: processedCriteria[0].columnIndex,
+            direction: processedCriteria[0].direction,
+            dataType: processedCriteria[0].dataType
+        };
+
+        this.updateMetadata();
+        this.notifyChange();
+    }
+
+    /**
+     * Sort by custom function
+     */
+    sortByCustomFunction(compareFn: (rowA: string[], rowB: string[]) => number): void {
+        this.tableData.rows.sort(compareFn);
+        
+        // Clear sort state since it's custom
+        this.sortState = null;
+        
+        this.updateMetadata();
+        this.notifyChange();
+    }
+
+    /**
+     * Shuffle rows randomly
+     */
+    shuffleRows(): void {
+        for (let i = this.tableData.rows.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.tableData.rows[i], this.tableData.rows[j]] = [this.tableData.rows[j], this.tableData.rows[i]];
+        }
+
+        this.sortState = null;
+        this.updateMetadata();
+        this.notifyChange();
+    }
+
+    /**
+     * Reverse current row order
+     */
+    reverseRows(): void {
+        this.tableData.rows.reverse();
+        
+        // Update sort state if exists
+        if (this.sortState) {
+            this.sortState.direction = this.sortState.direction === 'asc' ? 'desc' : 'asc';
+        }
+        
+        this.updateMetadata();
+        this.notifyChange();
+    }
+
+    /**
+     * Get current sort state
+     */
+    getSortState(): {
+        columnIndex: number;
+        direction: 'asc' | 'desc';
+        dataType: 'string' | 'number' | 'date' | 'auto';
+        columnName: string;
+    } | null {
+        if (!this.sortState) {
+            return null;
+        }
+
+        return {
+            ...this.sortState,
+            columnName: this.tableData.headers[this.sortState.columnIndex]
+        };
+    }
+
+    /**
+     * Clear sort state
+     */
+    clearSortState(): void {
+        this.sortState = null;
+    }
+
+    /**
+     * Check if table is currently sorted
+     */
+    isSorted(): boolean {
+        return this.sortState !== null;
+    }
+
+    /**
+     * Get sort indicators for UI
+     */
+    getSortIndicators(): Array<{
+        columnIndex: number;
+        direction: 'asc' | 'desc' | null;
+        isPrimary: boolean;
+    }> {
+        const indicators = this.tableData.headers.map((_, index) => ({
+            columnIndex: index,
+            direction: null as 'asc' | 'desc' | null,
+            isPrimary: false
+        }));
+
+        if (this.sortState) {
+            indicators[this.sortState.columnIndex] = {
+                columnIndex: this.sortState.columnIndex,
+                direction: this.sortState.direction,
+                isPrimary: true
+            };
+        }
+
+        return indicators;
+    }
+
+    /**
+     * Detect column data type based on content
+     */
+    private detectColumnDataType(columnIndex: number): 'string' | 'number' | 'date' {
+        const values = this.tableData.rows.map(row => row[columnIndex]).filter(val => val.trim());
+        
+        if (values.length === 0) {
+            return 'string';
+        }
+
+        let numberCount = 0;
+        let dateCount = 0;
+
+        for (const value of values) {
+            // Check if it's a number
+            if (!isNaN(parseFloat(value)) && isFinite(parseFloat(value))) {
+                numberCount++;
+            }
+            
+            // Check if it's a date
+            const dateValue = new Date(value);
+            if (!isNaN(dateValue.getTime()) && value.length > 4) {
+                dateCount++;
+            }
+        }
+
+        const total = values.length;
+        const numberRatio = numberCount / total;
+        const dateRatio = dateCount / total;
+
+        // If more than 70% are numbers, treat as number
+        if (numberRatio > 0.7) {
+            return 'number';
+        }
+        
+        // If more than 70% are dates, treat as date
+        if (dateRatio > 0.7) {
+            return 'date';
+        }
+
+        return 'string';
+    }
+
+    /**
+     * Compare two values based on data type
+     */
+    private compareValues(
+        a: string, 
+        b: string, 
+        dataType: 'string' | 'number' | 'date',
+        options: { caseSensitive: boolean; locale: string }
+    ): number {
+        switch (dataType) {
+            case 'number':
+                const numA = parseFloat(a) || 0;
+                const numB = parseFloat(b) || 0;
+                return numA - numB;
+
+            case 'date':
+                const dateA = new Date(a);
+                const dateB = new Date(b);
+                
+                // If either date is invalid, fall back to string comparison
+                if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                    return options.caseSensitive 
+                        ? a.localeCompare(b, options.locale)
+                        : a.toLowerCase().localeCompare(b.toLowerCase(), options.locale);
+                }
+                
+                return dateA.getTime() - dateB.getTime();
+
+            case 'string':
+            default:
+                return options.caseSensitive 
+                    ? a.localeCompare(b, options.locale)
+                    : a.toLowerCase().localeCompare(b.toLowerCase(), options.locale);
+        }
+    }
+
+    /**
+     * Sort with natural ordering (handles numbers in strings)
+     */
+    sortNatural(columnIndex: number, direction: 'asc' | 'desc'): void {
+        if (columnIndex < 0 || columnIndex >= this.tableData.headers.length) {
+            throw new Error(`Invalid column index: ${columnIndex}`);
+        }
+
+        this.tableData.rows.sort((a, b) => {
+            const valueA = a[columnIndex] || '';
+            const valueB = b[columnIndex] || '';
+            
+            const comparison = this.naturalCompare(valueA, valueB);
+            return direction === 'asc' ? comparison : -comparison;
+        });
+
+        this.sortState = {
+            columnIndex,
+            direction,
+            dataType: 'string'
+        };
+
+        this.updateMetadata();
+        this.notifyChange();
+    }
+
+    /**
+     * Natural comparison (handles numbers within strings)
+     */
+    private naturalCompare(a: string, b: string): number {
+        const ax: Array<[number, string]> = [];
+        const bx: Array<[number, string]> = [];
+
+        a.replace(/(\d+)|(\D+)/g, (_, $1, $2) => {
+            ax.push([$1 ? parseInt($1, 10) : Infinity, $2 || ""]);
+            return "";
+        });
+
+        b.replace(/(\d+)|(\D+)/g, (_, $1, $2) => {
+            bx.push([$1 ? parseInt($1, 10) : Infinity, $2 || ""]);
+            return "";
+        });
+
+        while (ax.length && bx.length) {
+            const an = ax.shift();
+            const bn = bx.shift();
+            
+            if (!an || !bn) {
+                break;
+            }
+            
+            const nn = an[0] - bn[0] || an[1].localeCompare(bn[1]);
+            if (nn) {
+                return nn;
+            }
+        }
+
+        return ax.length - bx.length;
+    }
+
+    /**
+     * Get sorted column statistics
+     */
+    getSortedColumnStats(columnIndex: number): {
+        dataType: 'string' | 'number' | 'date';
+        uniqueValues: number;
+        nullValues: number;
+        minValue: string;
+        maxValue: string;
+        sampleValues: string[];
+    } {
+        if (columnIndex < 0 || columnIndex >= this.tableData.headers.length) {
+            throw new Error(`Invalid column index: ${columnIndex}`);
+        }
+
+        const values = this.tableData.rows.map(row => row[columnIndex]);
+        const nonEmptyValues = values.filter(val => val.trim());
+        const uniqueValues = new Set(nonEmptyValues);
+        
+        const dataType = this.detectColumnDataType(columnIndex);
+        
+        // Sort values to find min/max
+        const sortedValues = [...nonEmptyValues].sort((a, b) => 
+            this.compareValues(a, b, dataType, { caseSensitive: true, locale: 'en-US' })
+        );
+
+        return {
+            dataType,
+            uniqueValues: uniqueValues.size,
+            nullValues: values.length - nonEmptyValues.length,
+            minValue: sortedValues[0] || '',
+            maxValue: sortedValues[sortedValues.length - 1] || '',
+            sampleValues: sortedValues.slice(0, 5)
+        };
+    }
 }

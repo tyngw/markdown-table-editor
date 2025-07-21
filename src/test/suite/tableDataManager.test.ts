@@ -458,4 +458,205 @@ suite('TableDataManager Test Suite', () => {
             manager.deleteColumns([0, 1, 2]);
         }, /Cannot delete all columns/);
     });
+
+    // Advanced Sorting Tests
+
+    test('should perform advanced sort with options', () => {
+        manager.sortByColumnAdvanced(1, 'desc', { dataType: 'number' });
+        
+        const tableData = manager.getTableData();
+        assert.strictEqual(tableData.rows[0][1], '35');
+        assert.strictEqual(tableData.rows[1][1], '30');
+        assert.strictEqual(tableData.rows[2][1], '25');
+        
+        const sortState = manager.getSortState();
+        assert.notStrictEqual(sortState, null);
+        assert.strictEqual(sortState!.columnIndex, 1);
+        assert.strictEqual(sortState!.direction, 'desc');
+    });
+
+    test('should perform multi-column sort', () => {
+        // Add duplicate ages to test secondary sort
+        manager.updateCell(1, 1, '25'); // Jane now has same age as John
+        
+        manager.sortByMultipleColumns([
+            { columnIndex: 1, direction: 'asc' }, // Sort by age first
+            { columnIndex: 0, direction: 'asc' }  // Then by name
+        ]);
+        
+        const tableData = manager.getTableData();
+        // Both John and Jane have age 25, so should be sorted by name
+        assert.strictEqual(tableData.rows[0][1], '25');
+        assert.strictEqual(tableData.rows[1][1], '25');
+        assert.strictEqual(tableData.rows[2][1], '35');
+    });
+
+    test('should sort with custom function', () => {
+        // Sort by city length (shortest first)
+        manager.sortByCustomFunction((rowA, rowB) => {
+            const cityA = rowA[2];
+            const cityB = rowB[2];
+            return cityA.length - cityB.length;
+        });
+        
+        const tableData = manager.getTableData();
+        assert.strictEqual(tableData.rows[0][2], 'LA'); // Shortest city name
+        assert.strictEqual(tableData.rows[2][2], 'Chicago'); // Longest city name
+        
+        // Custom sort should clear sort state
+        assert.strictEqual(manager.getSortState(), null);
+    });
+
+    test('should shuffle rows randomly', () => {
+        const originalOrder = manager.getTableData().rows.map(row => row[0]);
+        
+        manager.shuffleRows();
+        
+        const shuffledOrder = manager.getTableData().rows.map(row => row[0]);
+        
+        // Should have same elements but potentially different order
+        assert.strictEqual(shuffledOrder.length, originalOrder.length);
+        assert.ok(originalOrder.every(name => shuffledOrder.includes(name)));
+        
+        // Sort state should be cleared
+        assert.strictEqual(manager.getSortState(), null);
+    });
+
+    test('should reverse row order', () => {
+        const originalOrder = manager.getTableData().rows.map(row => row[0]);
+        
+        manager.reverseRows();
+        
+        const reversedOrder = manager.getTableData().rows.map(row => row[0]);
+        
+        assert.deepStrictEqual(reversedOrder, originalOrder.reverse());
+    });
+
+    test('should detect column data types', () => {
+        // Create table with different data types
+        const mixedTableNode: TableNode = {
+            startLine: 0,
+            endLine: 4,
+            headers: ['Name', 'Age', 'Score'],
+            rows: [
+                ['John', '25', '85.5'],
+                ['Jane', '30', '92.0'],
+                ['Bob', '35', '78.5']
+            ],
+            alignment: ['left', 'left', 'left']
+        };
+        
+        const mixedManager = new TableDataManager(mixedTableNode);
+        
+        const ageStats = mixedManager.getSortedColumnStats(1);
+        assert.strictEqual(ageStats.dataType, 'number');
+        
+        const scoreStats = mixedManager.getSortedColumnStats(2);
+        assert.strictEqual(scoreStats.dataType, 'number');
+        
+        const nameStats = mixedManager.getSortedColumnStats(0);
+        assert.strictEqual(nameStats.dataType, 'string');
+    });
+
+    test('should perform natural sort', () => {
+        // Create table with mixed alphanumeric data
+        const naturalTableNode: TableNode = {
+            startLine: 0,
+            endLine: 4,
+            headers: ['Item'],
+            rows: [
+                ['Item10'],
+                ['Item2'],
+                ['Item1'],
+                ['Item20']
+            ],
+            alignment: ['left']
+        };
+        
+        const naturalManager = new TableDataManager(naturalTableNode);
+        naturalManager.sortNatural(0, 'asc');
+        
+        const tableData = naturalManager.getTableData();
+        assert.strictEqual(tableData.rows[0][0], 'Item1');
+        assert.strictEqual(tableData.rows[1][0], 'Item2');
+        assert.strictEqual(tableData.rows[2][0], 'Item10');
+        assert.strictEqual(tableData.rows[3][0], 'Item20');
+    });
+
+    test('should get sort indicators', () => {
+        manager.sortByColumnAdvanced(1, 'desc');
+        
+        const indicators = manager.getSortIndicators();
+        assert.strictEqual(indicators.length, 3);
+        assert.strictEqual(indicators[1].direction, 'desc');
+        assert.strictEqual(indicators[1].isPrimary, true);
+        assert.strictEqual(indicators[0].direction, null);
+        assert.strictEqual(indicators[2].direction, null);
+    });
+
+    test('should get column statistics', () => {
+        const stats = manager.getSortedColumnStats(1); // Age column
+        
+        assert.strictEqual(stats.dataType, 'number');
+        assert.strictEqual(stats.uniqueValues, 3);
+        assert.strictEqual(stats.nullValues, 0);
+        assert.strictEqual(stats.minValue, '25');
+        assert.strictEqual(stats.maxValue, '35');
+        assert.ok(stats.sampleValues.length > 0);
+    });
+
+    test('should clear sort state', () => {
+        manager.sortByColumnAdvanced(0, 'asc');
+        assert.notStrictEqual(manager.getSortState(), null);
+        
+        manager.clearSortState();
+        assert.strictEqual(manager.getSortState(), null);
+        assert.strictEqual(manager.isSorted(), false);
+    });
+
+    test('should handle case-insensitive sorting', () => {
+        // Create table with mixed case
+        const caseTableNode: TableNode = {
+            startLine: 0,
+            endLine: 3,
+            headers: ['Name'],
+            rows: [
+                ['alice'],
+                ['Bob'],
+                ['CHARLIE']
+            ],
+            alignment: ['left']
+        };
+        
+        const caseManager = new TableDataManager(caseTableNode);
+        caseManager.sortByColumnAdvanced(0, 'asc', { caseSensitive: false });
+        
+        const tableData = caseManager.getTableData();
+        assert.strictEqual(tableData.rows[0][0], 'alice');
+        assert.strictEqual(tableData.rows[1][0], 'Bob');
+        assert.strictEqual(tableData.rows[2][0], 'CHARLIE');
+    });
+
+    test('should handle date sorting', () => {
+        // Create table with dates
+        const dateTableNode: TableNode = {
+            startLine: 0,
+            endLine: 3,
+            headers: ['Date'],
+            rows: [
+                ['2023-12-01'],
+                ['2023-01-15'],
+                ['2023-06-30']
+            ],
+            alignment: ['left']
+        };
+        
+        const dateManager = new TableDataManager(dateTableNode);
+        dateManager.sortByColumnAdvanced(0, 'asc', { dataType: 'date' });
+        
+        const tableData = dateManager.getTableData();
+        assert.strictEqual(tableData.rows[0][0], '2023-01-15');
+        assert.strictEqual(tableData.rows[1][0], '2023-06-30');
+        assert.strictEqual(tableData.rows[2][0], '2023-12-01');
+    });
 });
