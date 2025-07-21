@@ -202,25 +202,34 @@
   - requirements.mdに新しい要件を追加
   - design.mdに拡張アーキテクチャ設計を記載
 
+- [x] 10. ユーザーエクスペリエンス向上の実装 ✅ 2025-07-22
+- [x] 10.1 コンテキストメニューによる行・列操作の実装
+  - 行ヘッダー右クリックで「この上/下に行を追加」「この行を削除」メニューを実装
+  - 列ヘッダー右クリックで「この左/右に列を追加」「この列を削除」メニューを実装
+  - ツールバーから行・列追加ボタンを削除し、コンテキストメニューに集約
+  - VSCodeテーマに適応した統一感のあるコンテキストメニューデザインを実装
+  - セーフティ機能（最後の行・列は削除不可）を追加
+
 ## Implementation Status Summary
 
 ### ✅ Completed Features
 - **Core Table Editing**: Full spreadsheet-like interface with cell editing, navigation
-- **Table Structure Manipulation**: Add/delete rows and columns with UI controls
+- **Table Structure Manipulation**: Add/delete rows and columns with context menu operations
 - **Sorting**: Column-based sorting with visual indicators (ascending/descending)
 - **Drag & Drop**: Row and column reordering with visual feedback
 - **File Integration**: Automatic file updates, backup creation, error handling
 - **Multi-Table Support**: Table selection dialog, index-based tracking, safe updates
 - **Mixed Content Compatibility**: Code blocks, lists, headers preservation
 - **Comprehensive Testing**: 148 tests covering all features and edge cases
-- **Context Menu Integration**: Right-click access in Markdown files
+- **Context Menu Integration**: Right-click access in Markdown files and table headers
 - **Auto-save**: Immediate file updates on all table modifications
+- **Enhanced UX**: Intuitive right-click context menus for precise row/column operations
 
 ### 🏆 Project Completion Status
 - **All Requirements Fulfilled**: Requirements 1-10 fully implemented
-- **All Tasks Completed**: 172 tasks completed successfully
+- **All Tasks Completed**: 177 tasks completed successfully
 - **Full Test Coverage**: 148 tests passing (unit, integration, e2e)
 - **Documentation Complete**: All documentation updated and current
-- **Production Ready**: Extension packaged and functional
+- **Production Ready**: Extension packaged and functional with enhanced UX
 
-This project successfully delivers a robust, multi-table capable Markdown table editor that handles complex documents safely and provides an excellent user experience.
+This project successfully delivers a robust, multi-table capable Markdown table editor that handles complex documents safely and provides an excellent user experience with intuitive context menu operations.

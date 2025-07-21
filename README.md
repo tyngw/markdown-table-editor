@@ -6,7 +6,8 @@ A VS Code extension that provides a spreadsheet-like interface for editing Markd
 
 - **Spreadsheet-like Interface**: Edit Markdown tables in a familiar grid view
 - **Cell Navigation**: Use arrow keys, Tab, and Enter to navigate between cells
-- **Table Manipulation**: Add/delete rows and columns with easy-to-use controls
+- **Table Manipulation**: Add/delete rows and columns with intuitive context menus
+- **Context Menu Operations**: Right-click on row/column headers for precise insertion and deletion
 - **Sorting**: Click column headers to sort table data
 - **Drag & Drop**: Reorder rows and columns by dragging
 - **Auto-save**: Changes are automatically saved back to your Markdown file
@@ -37,9 +38,12 @@ A VS Code extension that provides a spreadsheet-like interface for editing Markd
 
 - **Cell Editing**: Click any cell to start editing, press Enter or Tab to confirm
 - **Navigation**: Use arrow keys to move between cells
-- **Add Row**: Click the "+" button at the end of any row
-- **Add Column**: Click the "+" button at the end of the header row
-- **Delete Row/Column**: Right-click on row/column headers for delete options
+- **Row Operations**: Right-click on row numbers for context menu with:
+  - Add row above/below current position
+  - Delete current row (if not the last row)
+- **Column Operations**: Right-click on column headers for context menu with:
+  - Add column left/right of current position
+  - Delete current column (if not the last column)
 - **Sorting**: Click column headers to sort (click again to reverse order)
 - **Drag & Drop**: Drag row/column headers to reorder
 
