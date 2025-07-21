@@ -408,6 +408,57 @@
             border-radius: 4px;
             margin-bottom: 16px;
         }
+
+        /* Drag and Drop styles */
+        .dragging {
+            opacity: 0.5 !important;
+            transform: rotate(2deg);
+            transition: all 0.2s ease;
+        }
+
+        .drag-over {
+            background-color: var(--vscode-list-dropBackground) !important;
+            border: 2px solid var(--vscode-focusBorder) !important;
+        }
+
+        .drop-indicator {
+            position: absolute;
+            background-color: var(--vscode-focusBorder);
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0.8;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 6px rgba(0, 122, 255, 0.5);
+        }
+
+        .row-number[draggable="true"]:hover {
+            cursor: grab;
+        }
+
+        .row-number[draggable="true"]:active {
+            cursor: grabbing;
+        }
+
+        .column-header[draggable="true"]:hover {
+            cursor: grab;
+        }
+
+        .column-header[draggable="true"]:active {
+            cursor: grabbing;
+        }
+
+        /* Visual feedback for drag operations */
+        .table-editor.drag-active {
+            user-select: none;
+        }
+
+        .table-editor.drag-active .row-number:not(.dragging) {
+            border: 2px dashed var(--vscode-panel-border);
+        }
+
+        .table-editor.drag-active .column-header:not(.dragging) {
+            border: 2px dashed var(--vscode-panel-border);
+        }
     </style>
 </head>
 <body>
@@ -662,6 +713,9 @@
         function setupTableEvents() {
             // Keyboard navigation
             document.addEventListener('keydown', handleKeyDown);
+            
+            // Setup drag and drop functionality
+            setupDragAndDrop();
         }
 
         // Handle keyboard navigation
@@ -671,11 +725,196 @@
                     cancelCellEdit();
                 } else if (event.key === 'Enter') {
                     commitCellEdit();
+                    event.preventDefault();
+                    // Move to next row after commit
+                    if (selectionStart && selectionStart.row < tableData.rows.length - 1) {
+                        selectCell(selectionStart.row + 1, selectionStart.col);
+                    }
+                } else if (event.key === 'Tab') {
+                    commitCellEdit();
+                    event.preventDefault();
+                    // Move to next cell after commit
+                    if (selectionStart) {
+                        navigateToNextCell(selectionStart.row, selectionStart.col, !event.shiftKey);
+                    }
                 }
                 return;
             }
 
-            // Add keyboard navigation logic here
+            // Only handle navigation if we have a selection
+            if (!selectionStart || selectedCells.size === 0) {
+                return;
+            }
+
+            // Arrow key navigation
+            switch (event.key) {
+                case 'ArrowUp':
+                    event.preventDefault();
+                    navigateCell(selectionStart.row - 1, selectionStart.col);
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    navigateCell(selectionStart.row + 1, selectionStart.col);
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    navigateCell(selectionStart.row, selectionStart.col - 1);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    navigateCell(selectionStart.row, selectionStart.col + 1);
+                    break;
+                case 'Tab':
+                    event.preventDefault();
+                    navigateToNextCell(selectionStart.row, selectionStart.col, !event.shiftKey);
+                    break;
+                case 'Enter':
+                    event.preventDefault();
+                    navigateCell(selectionStart.row + 1, selectionStart.col);
+                    break;
+                case 'Home':
+                    event.preventDefault();
+                    if (event.ctrlKey || event.metaKey) {
+                        // Ctrl+Home: Go to first cell
+                        navigateCell(0, 0);
+                    } else {
+                        // Home: Go to first column of current row
+                        navigateCell(selectionStart.row, 0);
+                    }
+                    break;
+                case 'End':
+                    event.preventDefault();
+                    if (event.ctrlKey || event.metaKey) {
+                        // Ctrl+End: Go to last cell
+                        navigateCell(tableData.rows.length - 1, tableData.headers.length - 1);
+                    } else {
+                        // End: Go to last column of current row
+                        navigateCell(selectionStart.row, tableData.headers.length - 1);
+                    }
+                    break;
+                case 'PageUp':
+                    event.preventDefault();
+                    navigateCell(Math.max(0, selectionStart.row - 10), selectionStart.col);
+                    break;
+                case 'PageDown':
+                    event.preventDefault();
+                    navigateCell(Math.min(tableData.rows.length - 1, selectionStart.row + 10), selectionStart.col);
+                    break;
+                case 'F2':
+                    event.preventDefault();
+                    startCellEdit(selectionStart.row, selectionStart.col);
+                    break;
+                case 'Delete':
+                case 'Backspace':
+                    event.preventDefault();
+                    // Clear selected cells
+                    clearSelectedCells();
+                    break;
+                case 'Escape':
+                    event.preventDefault();
+                    clearSelection();
+                    break;
+                default:
+                    // Check for alphanumeric keys to start editing
+                    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                        startCellEdit(selectionStart.row, selectionStart.col);
+                        // Let the character be typed in the input
+                        setTimeout(() => {
+                            const input = document.querySelector('.cell-input');
+                            if (input) {
+                                input.value = event.key;
+                                input.setSelectionRange(1, 1);
+                            }
+                        }, 0);
+                    }
+                    break;
+            }
+        }
+
+        // Navigate to a specific cell with bounds checking
+        function navigateCell(row, col) {
+            // Bounds checking
+            row = Math.max(0, Math.min(tableData.rows.length - 1, row));
+            col = Math.max(0, Math.min(tableData.headers.length - 1, col));
+            
+            selectCell(row, col);
+            scrollToCell(row, col);
+        }
+
+        // Navigate to next/previous cell (for Tab navigation)
+        function navigateToNextCell(row, col, forward) {
+            const totalCols = tableData.headers.length;
+            const totalRows = tableData.rows.length;
+
+            if (forward) {
+                // Move forward
+                col++;
+                if (col >= totalCols) {
+                    col = 0;
+                    row++;
+                    if (row >= totalRows) {
+                        row = totalRows - 1;
+                        col = totalCols - 1;
+                    }
+                }
+            } else {
+                // Move backward
+                col--;
+                if (col < 0) {
+                    col = totalCols - 1;
+                    row--;
+                    if (row < 0) {
+                        row = 0;
+                        col = 0;
+                    }
+                }
+            }
+
+            navigateCell(row, col);
+        }
+
+        // Scroll to ensure cell is visible
+        function scrollToCell(row, col) {
+            const cell = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
+            if (cell) {
+                cell.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'nearest'
+                });
+            }
+        }
+
+        // Clear content of selected cells
+        function clearSelectedCells() {
+            const updates = [];
+            selectedCells.forEach(cellKey => {
+                const [row, col] = cellKey.split('-').map(Number);
+                if (tableData.rows[row] && tableData.rows[row][col] !== undefined) {
+                    tableData.rows[row][col] = '';
+                    updates.push({ row, col, value: '' });
+                }
+            });
+
+            // Update UI
+            updates.forEach(update => {
+                const cell = document.querySelector(`td[data-row="${update.row}"][data-col="${update.col}"]`);
+                if (cell) {
+                    const content = cell.querySelector('.cell-content');
+                    if (content) {
+                        content.textContent = '';
+                    }
+                    cell.classList.add('empty-cell');
+                }
+            });
+
+            // Send updates to extension
+            updates.forEach(update => {
+                vscode.postMessage({
+                    command: 'updateCell',
+                    data: update
+                });
+            });
         }
 
         // Start editing a cell
@@ -854,6 +1093,225 @@
                     successDiv.remove();
                 }
             }, 3000);
+        }
+
+        // Drag and Drop functionality
+        let dragState = {
+            isDragging: false,
+            dragType: null, // 'row' or 'column'
+            dragIndex: -1,
+            dragElement: null,
+            dropIndicator: null
+        };
+
+        // Initialize drag and drop for rows and columns
+        function setupDragAndDrop() {
+            // Make row numbers draggable
+            document.querySelectorAll('.row-number').forEach((rowNum, index) => {
+                rowNum.draggable = true;
+                rowNum.setAttribute('data-drag-type', 'row');
+                rowNum.setAttribute('data-drag-index', index.toString());
+            });
+
+            // Make column headers draggable
+            document.querySelectorAll('.column-header').forEach((header, index) => {
+                header.draggable = true;
+                header.setAttribute('data-drag-type', 'column');
+                header.setAttribute('data-drag-index', index.toString());
+            });
+
+            // Add drag event listeners
+            document.addEventListener('dragstart', handleDragStart);
+            document.addEventListener('dragover', handleDragOver);
+            document.addEventListener('dragenter', handleDragEnter);
+            document.addEventListener('dragleave', handleDragLeave);
+            document.addEventListener('drop', handleDrop);
+            document.addEventListener('dragend', handleDragEnd);
+        }
+
+        function handleDragStart(event) {
+            const element = event.target;
+            const dragType = element.getAttribute('data-drag-type');
+            const dragIndex = parseInt(element.getAttribute('data-drag-index'));
+
+            if (!dragType || dragIndex === -1) {
+                event.preventDefault();
+                return;
+            }
+
+            dragState.isDragging = true;
+            dragState.dragType = dragType;
+            dragState.dragIndex = dragIndex;
+            dragState.dragElement = element;
+
+            // Set drag effect
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', '');
+
+            // Add visual feedback
+            element.style.opacity = '0.5';
+            element.classList.add('dragging');
+            
+            // Add drag state to table
+            const table = document.querySelector('.table-editor');
+            if (table) {
+                table.classList.add('drag-active');
+            }
+
+            // Create drop indicator
+            createDropIndicator();
+
+            console.log(`Started dragging ${dragType} ${dragIndex}`);
+        }
+
+        function handleDragOver(event) {
+            if (!dragState.isDragging) return;
+
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+
+            const element = event.target.closest(dragState.dragType === 'row' ? '.row-number' : '.column-header');
+            if (element) {
+                updateDropIndicator(element);
+            }
+        }
+
+        function handleDragEnter(event) {
+            if (!dragState.isDragging) return;
+            event.preventDefault();
+        }
+
+        function handleDragLeave(event) {
+            if (!dragState.isDragging) return;
+            // Only hide indicator if we're leaving the table area
+            if (!event.relatedTarget || !event.relatedTarget.closest('.table-editor')) {
+                hideDropIndicator();
+            }
+        }
+
+        function handleDrop(event) {
+            if (!dragState.isDragging) return;
+
+            event.preventDefault();
+
+            const dropTarget = event.target.closest(dragState.dragType === 'row' ? '.row-number' : '.column-header');
+            if (!dropTarget) return;
+
+            const dropIndex = parseInt(dropTarget.getAttribute('data-drag-index'));
+            if (dropIndex === -1 || dropIndex === dragState.dragIndex) return;
+
+            console.log(`Dropping ${dragState.dragType} ${dragState.dragIndex} onto ${dropIndex}`);
+
+            // Perform the move operation
+            if (dragState.dragType === 'row') {
+                moveRowViaDrag(dragState.dragIndex, dropIndex);
+            } else if (dragState.dragType === 'column') {
+                moveColumnViaDrag(dragState.dragIndex, dropIndex);
+            }
+        }
+
+        function handleDragEnd(event) {
+            if (!dragState.isDragging) return;
+
+            // Clean up visual feedback
+            if (dragState.dragElement) {
+                dragState.dragElement.style.opacity = '';
+                dragState.dragElement.classList.remove('dragging');
+            }
+            
+            // Remove drag state from table
+            const table = document.querySelector('.table-editor');
+            if (table) {
+                table.classList.remove('drag-active');
+            }
+
+            hideDropIndicator();
+
+            // Reset drag state
+            dragState = {
+                isDragging: false,
+                dragType: null,
+                dragIndex: -1,
+                dragElement: null,
+                dropIndicator: null
+            };
+        }
+
+        function createDropIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'drop-indicator';
+            indicator.style.cssText = `
+                position: absolute;
+                background-color: var(--vscode-focusBorder);
+                z-index: 1000;
+                pointer-events: none;
+                opacity: 0.8;
+                transition: all 0.2s ease;
+            `;
+
+            if (dragState.dragType === 'row') {
+                indicator.style.height = '3px';
+                indicator.style.left = '0';
+                indicator.style.right = '0';
+            } else {
+                indicator.style.width = '3px';
+                indicator.style.top = '0';
+                indicator.style.bottom = '0';
+            }
+
+            document.body.appendChild(indicator);
+            dragState.dropIndicator = indicator;
+        }
+
+        function updateDropIndicator(element) {
+            if (!dragState.dropIndicator) return;
+
+            const rect = element.getBoundingClientRect();
+            const indicator = dragState.dropIndicator;
+
+            if (dragState.dragType === 'row') {
+                indicator.style.top = (rect.bottom - 1) + 'px';
+                indicator.style.left = rect.left + 'px';
+                indicator.style.width = rect.width + 'px';
+                indicator.style.display = 'block';
+            } else {
+                indicator.style.left = (rect.right - 1) + 'px';
+                indicator.style.top = rect.top + 'px';
+                indicator.style.height = rect.height + 'px';
+                indicator.style.display = 'block';
+            }
+        }
+
+        function hideDropIndicator() {
+            if (dragState.dropIndicator) {
+                dragState.dropIndicator.style.display = 'none';
+            }
+        }
+
+        function moveRowViaDrag(fromIndex, toIndex) {
+            console.log(`Moving row from ${fromIndex} to ${toIndex}`);
+            
+            vscode.postMessage({
+                command: 'moveRow',
+                data: { from: fromIndex, to: toIndex }
+            });
+        }
+
+        function moveColumnViaDrag(fromIndex, toIndex) {
+            console.log(`Moving column from ${fromIndex} to ${toIndex}`);
+            
+            vscode.postMessage({
+                command: 'moveColumn',
+                data: { from: fromIndex, to: toIndex }
+            });
+        }
+
+        // Enhanced render function to include drag and drop setup
+        function renderTableWithDragDrop(data) {
+            renderTable(data);
+            setTimeout(() => {
+                setupDragAndDrop();
+            }, 100);
         }
 
         // Show status message
