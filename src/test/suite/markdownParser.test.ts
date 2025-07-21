@@ -331,4 +331,167 @@ Some text
         const tablesInRange = manager.getTablesInRange(0, 10);
         assert.ok(tablesInRange.length >= 0);
     });
+
+    // Error Handling Tests
+    test('should handle invalid content in parseDocument', () => {
+        assert.throws(() => {
+            parser.parseDocument(null as any);
+        }, /Invalid content provided for parsing/);
+
+        assert.throws(() => {
+            parser.parseDocument(undefined as any);
+        }, /Invalid content provided for parsing/);
+
+        assert.throws(() => {
+            parser.parseDocument(123 as any);
+        }, /Invalid content provided for parsing/);
+    });
+
+    test('should handle empty content gracefully', () => {
+        const ast = parser.parseDocument('');
+        assert.ok(ast);
+        assert.ok(Array.isArray(ast.tokens));
+        assert.strictEqual(ast.content, '');
+
+        const tables = parser.findTablesInDocument(ast);
+        assert.strictEqual(tables.length, 0);
+    });
+
+    test('should handle invalid AST in findTablesInDocument', () => {
+        assert.throws(() => {
+            parser.findTablesInDocument(null as any);
+        }, /Invalid AST provided for table extraction/);
+
+        assert.throws(() => {
+            parser.findTablesInDocument({ tokens: null, content: '' } as any);
+        }, /Invalid AST provided for table extraction/);
+
+        assert.throws(() => {
+            parser.findTablesInDocument({ tokens: 'not-array', content: '' } as any);
+        }, /Invalid AST provided for table extraction/);
+    });
+
+    test('should handle malformed table structure gracefully', () => {
+        const markdown = `| Header 1 | Header 2
+|----------|
+| Cell 1   | Cell 2   | Cell 3 |
+| Cell 4`;
+
+        const ast = parser.parseDocument(markdown);
+        // Should not throw, but may log warnings
+        const tables = parser.findTablesInDocument(ast);
+        
+        // The parser should be resilient to malformed tables
+        assert.ok(Array.isArray(tables));
+    });
+
+    test('should handle corrupted token structure', () => {
+        const ast = parser.parseDocument('| A | B |\n|---|---|\n| 1 | 2 |');
+        
+        // Manually corrupt the tokens to test error handling
+        const corruptedAst = {
+            ...ast,
+            tokens: ast.tokens.map(token => {
+                if (token.type === 'table_open') {
+                    return { ...token, map: null }; // Corrupt the map property
+                }
+                return token;
+            })
+        };
+
+        // Should handle corrupted tokens gracefully
+        const tables = parser.findTablesInDocument(corruptedAst);
+        assert.ok(Array.isArray(tables));
+    });
+
+    test('should validate table structure and report issues', () => {
+        const tableNode: TableNode = {
+            startLine: 0,
+            endLine: 2,
+            headers: ['A', 'B'],
+            rows: [
+                ['1', '2'],
+                ['3'], // Missing cell
+                ['4', '5', '6'] // Extra cell
+            ],
+            alignment: ['left'] // Missing alignment
+        };
+
+        const validation = parser.validateTableStructure(tableNode);
+        assert.strictEqual(validation.isValid, false);
+        assert.ok(validation.issues.length > 0);
+        assert.ok(validation.issues.some(issue => issue.includes('Row 2 has 1 columns')));
+        assert.ok(validation.issues.some(issue => issue.includes('Row 3 has 3 columns')));
+        assert.ok(validation.issues.some(issue => issue.includes('Alignment array length')));
+    });
+
+    test('should handle table with no headers gracefully', () => {
+        const tableNode: TableNode = {
+            startLine: 0,
+            endLine: 1,
+            headers: [],
+            rows: [['A', 'B']],
+            alignment: []
+        };
+
+        const validation = parser.validateTableStructure(tableNode);
+        assert.strictEqual(validation.isValid, false);
+        assert.ok(validation.issues.some(issue => issue.includes('Table has no headers')));
+    });
+
+    test('should handle extremely large tables without hanging', () => {
+        // Create a large table to test performance and stability
+        const headers = Array.from({ length: 100 }, (_, i) => `Header${i}`);
+        const headerRow = `| ${headers.join(' | ')} |`;
+        const separatorRow = `| ${headers.map(() => '---').join(' | ')} |`;
+        const dataRows = Array.from({ length: 1000 }, (_, i) => 
+            `| ${headers.map((_, j) => `Cell${i}-${j}`).join(' | ')} |`
+        ).join('\n');
+
+        const markdown = `${headerRow}\n${separatorRow}\n${dataRows}`;
+
+        // This should complete within reasonable time
+        const startTime = Date.now();
+        const ast = parser.parseDocument(markdown);
+        const tables = parser.findTablesInDocument(ast);
+        const endTime = Date.now();
+
+        assert.ok(endTime - startTime < 5000, 'Parsing should complete within 5 seconds');
+        assert.strictEqual(tables.length, 1);
+        assert.strictEqual(tables[0].headers.length, 100);
+        assert.strictEqual(tables[0].rows.length, 1000);
+    });
+});
+
+// Error class tests
+suite('MarkdownParser Error Classes', () => {
+    test('should create MarkdownParsingError correctly', () => {
+        const error = new (require('../../markdownParser').MarkdownParsingError)(
+            'Test error message',
+            'testOperation',
+            { line: 5, column: 10 },
+            new Error('Original error')
+        );
+
+        assert.strictEqual(error.name, 'MarkdownParsingError');
+        assert.strictEqual(error.message, 'Test error message');
+        assert.strictEqual(error.operation, 'testOperation');
+        assert.deepStrictEqual(error.position, { line: 5, column: 10 });
+        assert.ok(error.originalError instanceof Error);
+    });
+
+    test('should create TableValidationError correctly', () => {
+        const error = new (require('../../markdownParser').TableValidationError)(
+            'Validation failed',
+            2,
+            ['Issue 1', 'Issue 2'],
+            { startLine: 10, endLine: 15 }
+        );
+
+        assert.strictEqual(error.name, 'TableValidationError');
+        assert.strictEqual(error.message, 'Validation failed');
+        assert.strictEqual(error.tableIndex, 2);
+        assert.deepStrictEqual(error.issues, ['Issue 1', 'Issue 2']);
+        assert.deepStrictEqual(error.position, { startLine: 10, endLine: 15 });
+    });
 });
