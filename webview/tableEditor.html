@@ -716,7 +716,7 @@
                     
                     html += `<td id="${cellId}"
                                class="data-cell ${cellClass}" 
-                               onclick="selectCell(${rowIndex}, ${colIndex}, event)" 
+                               onclick="handleCellClick(${rowIndex}, ${colIndex}, event)" 
                                ondblclick="startCellEdit(${rowIndex}, ${colIndex})"
                                onmousedown="startCellSelect(${rowIndex}, ${colIndex})"
                                data-row="${rowIndex}" 
@@ -748,8 +748,28 @@
         let isSelecting = false;
         let lastSelectedCell = null;
 
+        // Handle cell click - check if it's clicking on an input field
+        function handleCellClick(row, col, event) {
+            // Check if the click target is a cell input field
+            if (event.target.classList.contains('cell-input')) {
+                // Clicking on input field - don't change selection, keep editing
+                return;
+            }
+            
+            // Otherwise, proceed with normal cell selection
+            selectCell(row, col, event);
+        }
+
         function selectCell(row, col, event = null) {
-            // If currently editing a cell, commit the edit first
+            // Check if we're clicking on the currently editing cell
+            if (currentEditingCell && 
+                currentEditingCell.row === row && 
+                currentEditingCell.col === col) {
+                // Same cell being clicked while editing - do nothing, keep editing
+                return;
+            }
+            
+            // If currently editing a different cell, commit the edit first
             if (currentEditingCell) {
                 commitCellEdit();
             }
@@ -1193,9 +1213,24 @@
             // Prevent the cell input from losing focus when clicked
             input.addEventListener('click', (e) => {
                 e.stopPropagation();
+                // Keep focus on the input
+                setTimeout(() => input.focus(), 0);
             });
 
-            input.addEventListener('blur', commitCellEdit);
+            // Prevent mousedown from bubbling to prevent cell selection
+            input.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+            });
+
+            // Enhanced blur handling - only commit if not clicking within the same input
+            input.addEventListener('blur', (e) => {
+                // Small delay to check if we're refocusing on the same input
+                setTimeout(() => {
+                    if (document.activeElement !== input) {
+                        commitCellEdit();
+                    }
+                }, 10);
+            });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     commitCellEdit();
