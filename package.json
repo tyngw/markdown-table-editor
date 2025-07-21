@@ -3,6 +3,13 @@
   "displayName": "Markdown Table Editor",
   "description": "Edit Markdown tables with a spreadsheet-like interface",
   "version": "0.1.0",
+  "publisher": "tyngw",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tyngw/markdown-table-editor.git"
+  },
+  "license": "MIT",
+  "keywords": ["markdown", "table", "editor", "spreadsheet"],
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -47,7 +54,9 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:integration": "npm run compile && node ./out/test/runIntegrationTests.js",
+    "test:all": "npm run test && npm run test:integration"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
