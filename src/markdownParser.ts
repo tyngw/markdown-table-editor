@@ -57,7 +57,7 @@ export class MarkdownParser {
      */
     parseDocument(content: string): MarkdownAST {
         try {
-            if (!content || typeof content !== 'string') {
+            if (typeof content !== 'string') {
                 throw new MarkdownParsingError(
                     'Invalid content provided for parsing',
                     'parseDocument'
