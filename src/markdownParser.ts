@@ -1,14 +1,5 @@
-import * as MarkdownIt from 'markdown-it';
-
-export interface MarkdownAST {
-    tokens: any[];
-    content: string;
-}
-
-export interface Position {
-    line: number;
-    character: number;
-}
+const MarkdownIt = require('markdown-it');
+import * as vscode from 'vscode';
 
 export interface TableNode {
     startLine: number;
@@ -18,8 +9,13 @@ export interface TableNode {
     alignment: ('left' | 'center' | 'right')[];
 }
 
+export interface MarkdownAST {
+    tokens: any[];
+    content: string;
+}
+
 export class MarkdownParser {
-    private md: MarkdownIt;
+    private md: any;
 
     constructor() {
         this.md = new MarkdownIt({
@@ -29,6 +25,9 @@ export class MarkdownParser {
         });
     }
 
+    /**
+     * Parse markdown document and return AST
+     */
     parseDocument(content: string): MarkdownAST {
         const tokens = this.md.parse(content, {});
         return {
@@ -37,16 +36,18 @@ export class MarkdownParser {
         };
     }
 
+    /**
+     * Find all tables in the document
+     */
     findTablesInDocument(ast: MarkdownAST): TableNode[] {
         const tables: TableNode[] = [];
         const tokens = ast.tokens;
-        const lines = ast.content.split('\n');
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
             
             if (token.type === 'table_open') {
-                const tableNode = this.parseTableToken(tokens, i, lines);
+                const tableNode = this.parseTableToken(tokens, i, ast.content);
                 if (tableNode) {
                     tables.push(tableNode);
                 }
@@ -54,8 +55,12 @@ export class MarkdownParser {
         }
 
         return tables;
-    }    fin
-dTableAtPosition(ast: MarkdownAST, position: Position): TableNode | null {
+    }
+
+    /**
+     * Find table at specific position
+     */
+    findTableAtPosition(ast: MarkdownAST, position: vscode.Position): TableNode | null {
         const tables = this.findTablesInDocument(ast);
         
         for (const table of tables) {
@@ -63,152 +68,201 @@ dTableAtPosition(ast: MarkdownAST, position: Position): TableNode | null {
                 return table;
             }
         }
-        
+
         return null;
     }
 
-    private parseTableToken(tokens: any[], startIndex: number, lines: string[]): TableNode | null {
-        let i = startIndex;
+    /**
+     * Parse table token and extract table data
+     */
+    private parseTableToken(tokens: any[], startIndex: number, content: string): TableNode | null {
+        let currentIndex = startIndex;
         let headers: string[] = [];
         let rows: string[][] = [];
         let alignment: ('left' | 'center' | 'right')[] = [];
-        let startLine = -1;
-        let endLine = -1;
+        let startLine = 0;
+        let endLine = 0;
 
         // Find table boundaries
-        while (i < tokens.length && tokens[i].type !== 'table_close') {
-            const token = tokens[i];
-            
-            if (token.map && startLine === -1) {
-                startLine = token.map[0];
+        if (tokens[startIndex].map) {
+            startLine = tokens[startIndex].map[0];
+            endLine = tokens[startIndex].map[1];
+        }
+
+        // Parse table structure
+        while (currentIndex < tokens.length) {
+            const token = tokens[currentIndex];
+
+            if (token.type === 'table_close') {
+                break;
             }
-            
+
             if (token.type === 'thead_open') {
-                i++;
-                // Parse header row
-                while (i < tokens.length && tokens[i].type !== 'thead_close') {
-                    if (tokens[i].type === 'tr_open') {
-                        i++;
-                        const headerRow: string[] = [];
-                        while (i < tokens.length && tokens[i].type !== 'tr_close') {
-                            if (tokens[i].type === 'th_open') {
-                                // Get alignment from style attribute
-                                const style = tokens[i].attrGet?.('style') || '';
-                                if (style.includes('text-align:center')) {
-                                    alignment.push('center');
-                                } else if (style.includes('text-align:right')) {
-                                    alignment.push('right');
-                                } else {
-                                    alignment.push('left');
-                                }
-                                i++;
-                                // Get header content
-                                if (i < tokens.length && tokens[i].type === 'inline') {
-                                    headerRow.push(tokens[i].content || '');
-                                }
-                            }
-                            i++;
-                        }
-                        headers = headerRow;
-                    }
-                    i++;
-                }
-            } else if (token.type === 'tbody_open') {
-                i++;
-                // Parse body rows
-                while (i < tokens.length && tokens[i].type !== 'tbody_close') {
-                    if (tokens[i].type === 'tr_open') {
-                        i++;
-                        const row: string[] = [];
-                        while (i < tokens.length && tokens[i].type !== 'tr_close') {
-                            if (tokens[i].type === 'td_open') {
-                                i++;
-                                // Get cell content
-                                if (i < tokens.length && tokens[i].type === 'inline') {
-                                    row.push(tokens[i].content || '');
-                                }
-                            }
-                            i++;
-                        }
-                        if (row.length > 0) {
-                            rows.push(row);
-                        }
-                    }
-                    i++;
-                }
+                const headerData = this.parseTableHead(tokens, currentIndex);
+                headers = headerData.headers;
+                alignment = headerData.alignment;
+                currentIndex = headerData.nextIndex;
+                continue;
             }
-            
-            if (token.map) {
-                endLine = token.map[1] - 1;
+
+            if (token.type === 'tbody_open') {
+                const bodyData = this.parseTableBody(tokens, currentIndex);
+                rows = bodyData.rows;
+                currentIndex = bodyData.nextIndex;
+                continue;
             }
-            
-            i++;
+
+            currentIndex++;
         }
 
-        // If we couldn't get line numbers from tokens, try to find them in the content
-        if (startLine === -1 || endLine === -1) {
-            const tableLines = this.findTableLinesInContent(lines, headers, rows);
-            if (tableLines) {
-                startLine = tableLines.start;
-                endLine = tableLines.end;
-            }
-        }
-
-        if (headers.length === 0 || startLine === -1) {
-            return null;
-        }
-
-        // Ensure alignment array matches header count
-        while (alignment.length < headers.length) {
-            alignment.push('left');
+        // Update end line if we have better information
+        if (tokens[currentIndex] && tokens[currentIndex].map) {
+            endLine = tokens[currentIndex].map[1];
         }
 
         return {
             startLine,
-            endLine: endLine === -1 ? startLine + rows.length + 1 : endLine,
+            endLine,
             headers,
             rows,
             alignment
         };
     }
 
-    private findTableLinesInContent(lines: string[], headers: string[], rows: string[][]): { start: number; end: number } | null {
-        // Look for table pattern in content
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            
-            // Check if this looks like a table header
-            if (line.includes('|') && headers.length > 0) {
-                const lineCells = line.split('|').map(cell => cell.trim()).filter(cell => cell.length > 0);
+    /**
+     * Parse table header
+     */
+    private parseTableHead(tokens: any[], startIndex: number): {
+        headers: string[];
+        alignment: ('left' | 'center' | 'right')[];
+        nextIndex: number;
+    } {
+        let currentIndex = startIndex;
+        const headers: string[] = [];
+        const alignment: ('left' | 'center' | 'right')[] = [];
+
+        while (currentIndex < tokens.length) {
+            const token = tokens[currentIndex];
+
+            if (token.type === 'thead_close') {
+                currentIndex++;
+                break;
+            }
+
+            if (token.type === 'tr_open') {
+                currentIndex++;
+                continue;
+            }
+
+            if (token.type === 'th_open') {
+                // Extract alignment from token attributes
+                const align = this.extractAlignment(token);
+                alignment.push(align);
                 
-                // Simple heuristic: if the line contains similar content to our headers
-                if (lineCells.length === headers.length) {
-                    let matches = 0;
-                    for (let j = 0; j < headers.length; j++) {
-                        if (lineCells[j].includes(headers[j]) || headers[j].includes(lineCells[j])) {
-                            matches++;
-                        }
-                    }
-                    
-                    if (matches >= headers.length / 2) {
-                        // Found likely start, now find end
-                        let endLine = i;
-                        for (let k = i + 1; k < lines.length; k++) {
-                            if (lines[k].trim().includes('|')) {
-                                endLine = k;
-                            } else if (lines[k].trim() === '') {
-                                break;
-                            } else {
-                                break;
-                            }
-                        }
-                        
-                        return { start: i, end: endLine };
-                    }
+                // Find the content of this header cell
+                const headerContent = this.extractCellContent(tokens, currentIndex);
+                headers.push(headerContent.content);
+                currentIndex = headerContent.nextIndex;
+                continue;
+            }
+
+            currentIndex++;
+        }
+
+        return { headers, alignment, nextIndex: currentIndex };
+    }
+
+    /**
+     * Parse table body
+     */
+    private parseTableBody(tokens: any[], startIndex: number): {
+        rows: string[][];
+        nextIndex: number;
+    } {
+        let currentIndex = startIndex;
+        const rows: string[][] = [];
+        let currentRow: string[] = [];
+
+        while (currentIndex < tokens.length) {
+            const token = tokens[currentIndex];
+
+            if (token.type === 'tbody_close') {
+                if (currentRow.length > 0) {
+                    rows.push(currentRow);
                 }
+                currentIndex++;
+                break;
+            }
+
+            if (token.type === 'tr_open') {
+                currentRow = [];
+                currentIndex++;
+                continue;
+            }
+
+            if (token.type === 'tr_close') {
+                if (currentRow.length > 0) {
+                    rows.push(currentRow);
+                    currentRow = [];
+                }
+                currentIndex++;
+                continue;
+            }
+
+            if (token.type === 'td_open') {
+                const cellContent = this.extractCellContent(tokens, currentIndex);
+                currentRow.push(cellContent.content);
+                currentIndex = cellContent.nextIndex;
+                continue;
+            }
+
+            currentIndex++;
+        }
+
+        return { rows, nextIndex: currentIndex };
+    }
+
+    /**
+     * Extract cell content from tokens
+     */
+    private extractCellContent(tokens: any[], startIndex: number): {
+        content: string;
+        nextIndex: number;
+    } {
+        let currentIndex = startIndex + 1; // Skip the opening tag
+        let content = '';
+
+        while (currentIndex < tokens.length) {
+            const token = tokens[currentIndex];
+
+            if (token.type === 'th_close' || token.type === 'td_close') {
+                currentIndex++;
+                break;
+            }
+
+            if (token.type === 'inline') {
+                content += token.content || '';
+            }
+
+            currentIndex++;
+        }
+
+        return { content: content.trim(), nextIndex: currentIndex };
+    }
+
+    /**
+     * Extract alignment from token attributes
+     */
+    private extractAlignment(token: any): 'left' | 'center' | 'right' {
+        if (token.attrGet && token.attrGet('style')) {
+            const style = token.attrGet('style');
+            if (style.includes('text-align: center')) {
+                return 'center';
+            }
+            if (style.includes('text-align: right')) {
+                return 'right';
             }
         }
-        
-        return null;
+        return 'left';
     }
 }
