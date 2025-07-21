@@ -17,48 +17,120 @@
 
         .table-container {
             overflow: auto;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
+            border: 2px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            background-color: var(--vscode-editor-background);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .table-editor {
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             width: 100%;
             min-width: 600px;
+            font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', 'Courier New', monospace);
+            font-size: var(--vscode-editor-font-size, 14px);
         }
 
-        .table-editor th,
+        /* Column headers */
+        .table-editor th {
+            background: linear-gradient(180deg, 
+                var(--vscode-editor-lineHighlightBackground) 0%, 
+                var(--vscode-list-hoverBackground) 100%);
+            border: 1px solid var(--vscode-panel-border);
+            border-top: 2px solid var(--vscode-focusBorder);
+            padding: 10px 12px;
+            text-align: left;
+            position: relative;
+            min-width: 120px;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            color: var(--vscode-foreground);
+            transition: background-color 0.15s ease;
+        }
+
+        .table-editor th:hover {
+            background: linear-gradient(180deg, 
+                var(--vscode-list-hoverBackground) 0%, 
+                var(--vscode-list-activeSelectionBackground) 100%);
+        }
+
+        .table-editor th:first-child {
+            border-left: 2px solid var(--vscode-focusBorder);
+        }
+
+        .table-editor th:last-child {
+            border-right: 2px solid var(--vscode-focusBorder);
+        }
+
+        /* Row numbers */
+        .row-number {
+            background: linear-gradient(90deg, 
+                var(--vscode-editor-lineHighlightBackground) 0%, 
+                var(--vscode-list-hoverBackground) 100%);
+            border: 1px solid var(--vscode-panel-border);
+            border-left: 2px solid var(--vscode-focusBorder);
+            font-weight: 600;
+            text-align: center;
+            width: 60px;
+            min-width: 60px;
+            max-width: 60px;
+            user-select: none;
+            color: var(--vscode-descriptionForeground);
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            position: sticky;
+            left: 0;
+            z-index: 10;
+        }
+
+        .row-number:hover {
+            background: linear-gradient(90deg, 
+                var(--vscode-list-hoverBackground) 0%, 
+                var(--vscode-list-activeSelectionBackground) 100%);
+            color: var(--vscode-foreground);
+        }
+
+        /* Data cells */
         .table-editor td {
+            background-color: var(--vscode-editor-background);
             border: 1px solid var(--vscode-panel-border);
             padding: 8px 12px;
             text-align: left;
             position: relative;
-            min-width: 100px;
-        }
-
-        .table-editor th {
-            background-color: var(--vscode-editor-lineHighlightBackground);
-            font-weight: bold;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .table-editor th:hover {
-            background-color: var(--vscode-list-hoverBackground);
-        }
-
-        .table-editor td {
-            background-color: var(--vscode-editor-background);
+            min-width: 120px;
+            cursor: cell;
+            transition: all 0.15s ease;
+            vertical-align: top;
         }
 
         .table-editor td:hover {
             background-color: var(--vscode-list-hoverBackground);
         }
 
-        .table-editor td.editing {
-            padding: 0;
+        .table-editor td.selected {
+            background-color: var(--vscode-list-activeSelectionBackground);
+            border: 2px solid var(--vscode-focusBorder);
+            box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
         }
 
+        .table-editor td.editing {
+            padding: 0;
+            background-color: var(--vscode-input-background);
+            border: 2px solid var(--vscode-inputOption-activeBorder);
+        }
+
+        /* Grid lines enhancement */
+        .table-editor tr:nth-child(even) td:not(.row-number) {
+            background-color: var(--vscode-editor-lineHighlightBackground);
+        }
+
+        .table-editor tr:nth-child(even) td:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        /* Cell input */
         .cell-input {
             width: 100%;
             height: 100%;
@@ -68,15 +140,210 @@
             font-size: inherit;
             color: var(--vscode-foreground);
             background-color: var(--vscode-input-background);
-            outline: 2px solid var(--vscode-focusBorder);
+            outline: none;
+            resize: none;
+            box-sizing: border-box;
         }
 
-        .row-number {
-            background-color: var(--vscode-editor-lineHighlightBackground);
-            font-weight: bold;
+        .cell-input:focus {
+            background-color: var(--vscode-input-background);
+            box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+        }
+
+        /* Column resize handle */
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            right: -2px;
+            width: 4px;
+            height: 100%;
+            cursor: col-resize;
+            background-color: transparent;
+            z-index: 5;
+        }
+
+        .resize-handle:hover {
+            background-color: var(--vscode-focusBorder);
+        }
+
+        /* Selection indicators */
+        .column-selected {
+            background-color: var(--vscode-list-activeSelectionBackground) !important;
+        }
+
+        .row-selected {
+            background-color: var(--vscode-list-activeSelectionBackground) !important;
+        }
+
+        /* Header corner cell */
+        .header-corner {
+            background: linear-gradient(135deg, 
+                var(--vscode-editor-lineHighlightBackground) 0%, 
+                var(--vscode-list-hoverBackground) 100%);
+            border: 2px solid var(--vscode-focusBorder);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            border-right: 1px solid var(--vscode-panel-border);
+            width: 60px;
+            min-width: 60px;
+            max-width: 60px;
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            cursor: pointer;
             text-align: center;
-            width: 50px;
-            user-select: none;
+            font-size: 16px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .header-corner:hover {
+            background: linear-gradient(135deg, 
+                var(--vscode-list-hoverBackground) 0%, 
+                var(--vscode-list-activeSelectionBackground) 100%);
+            color: var(--vscode-foreground);
+        }
+
+        /* Enhanced column headers */
+        .column-header {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+
+        .column-letter {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground);
+            font-weight: 400;
+            text-transform: uppercase;
+        }
+
+        .header-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* Enhanced data cells */
+        .data-cell {
+            position: relative;
+        }
+
+        .cell-content {
+            min-height: 20px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .empty-cell {
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+        }
+
+        .empty-cell .cell-content:empty::before {
+            content: "Empty";
+            opacity: 0.5;
+        }
+
+        /* Selection enhancements */
+        .data-cell.selected {
+            background-color: var(--vscode-list-activeSelectionBackground) !important;
+            color: var(--vscode-list-activeSelectionForeground);
+            border: 2px solid var(--vscode-focusBorder) !important;
+            box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+        }
+
+        .row-number.selected,
+        .column-header.selected {
+            background: var(--vscode-list-activeSelectionBackground) !important;
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+
+        /* Grid enhancements */
+        .table-editor tbody tr:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .table-editor tbody tr:hover .row-number {
+            background: linear-gradient(90deg, 
+                var(--vscode-list-hoverBackground) 0%, 
+                var(--vscode-list-activeSelectionBackground) 100%);
+        }
+
+        /* Resize cursor */
+        .table-editor th {
+            position: relative;
+        }
+
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            right: -2px;
+            width: 4px;
+            height: 100%;
+            cursor: col-resize;
+            background-color: transparent;
+            z-index: 5;
+        }
+
+        .resize-handle:hover {
+            background-color: var(--vscode-focusBorder);
+        }
+
+        /* Toolbar enhancements */
+        .toolbar {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 8px;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border-radius: 4px;
+            border: 1px solid var(--vscode-panel-border);
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 20px;
+            background-color: var(--vscode-panel-border);
+            margin: 0 8px;
+        }
+
+        /* Status bar enhancements */
+        .status-bar {
+            margin-top: 16px;
+            padding: 8px 12px;
+            background-color: var(--vscode-statusBar-background);
+            color: var(--vscode-statusBar-foreground);
+            font-size: 12px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-info {
+            display: flex;
+            gap: 16px;
+        }
+
+        .status-selection {
+            color: var(--vscode-statusBar-prominentForeground);
+            font-weight: 500;
         }
 
         .sort-indicator {
@@ -203,25 +470,58 @@
         function renderTableContent() {
             if (!tableData) return '';
 
-            let html = '<thead><tr><th class="row-number">#</th>';
+            let html = '<thead><tr>';
             
-            // Headers
+            // Header corner cell (select all)
+            html += '<th class="header-corner" onclick="selectAll()" title="Select All">⚏</th>';
+            
+            // Column headers with enhanced styling
             tableData.headers.forEach((header, index) => {
                 const sortClass = sortState.column === index ? `sort-${sortState.direction}` : '';
-                html += `<th onclick="sortByColumn(${index})" class="${sortClass}">
-                    ${escapeHtml(header)}
-                    <span class="sort-indicator"></span>
+                const columnLetter = getColumnLetter(index);
+                html += `<th onclick="sortByColumn(${index})" 
+                           onmousedown="startColumnSelect(${index})"
+                           class="column-header ${sortClass}" 
+                           data-col="${index}"
+                           title="Column ${columnLetter}: ${escapeHtml(header)}">
+                    <div class="header-content">
+                        <span class="column-letter">${columnLetter}</span>
+                        <span class="header-text">${escapeHtml(header)}</span>
+                        <span class="sort-indicator"></span>
+                    </div>
+                    <div class="resize-handle" onmousedown="startColumnResize(event, ${index})"></div>
                 </th>`;
             });
             
             html += '</tr></thead><tbody>';
             
-            // Rows
+            // Data rows with enhanced styling
             tableData.rows.forEach((row, rowIndex) => {
-                html += `<tr><td class="row-number">${rowIndex + 1}</td>`;
+                html += `<tr data-row="${rowIndex}">`;
+                
+                // Row number with selection capability
+                html += `<td class="row-number" 
+                           onclick="selectRow(${rowIndex})" 
+                           onmousedown="startRowSelect(${rowIndex})"
+                           title="Row ${rowIndex + 1}">
+                    ${rowIndex + 1}
+                </td>`;
+                
+                // Data cells with enhanced interaction
                 row.forEach((cell, colIndex) => {
-                    html += `<td onclick="startCellEdit(${rowIndex}, ${colIndex})" data-row="${rowIndex}" data-col="${colIndex}">
-                        ${escapeHtml(cell)}
+                    const cellId = `cell-${rowIndex}-${colIndex}`;
+                    const isEmpty = !cell || cell.trim() === '';
+                    const cellClass = isEmpty ? 'empty-cell' : '';
+                    
+                    html += `<td id="${cellId}"
+                               class="data-cell ${cellClass}" 
+                               onclick="selectCell(${rowIndex}, ${colIndex})" 
+                               ondblclick="startCellEdit(${rowIndex}, ${colIndex})"
+                               onmousedown="startCellSelect(${rowIndex}, ${colIndex})"
+                               data-row="${rowIndex}" 
+                               data-col="${colIndex}"
+                               title="Cell ${getColumnLetter(colIndex)}${rowIndex + 1}">
+                        <div class="cell-content">${escapeHtml(cell)}</div>
                     </td>`;
                 });
                 html += '</tr>';
@@ -229,6 +529,133 @@
             
             html += '</tbody>';
             return html;
+        }
+
+        // Get Excel-style column letter (A, B, C, ..., Z, AA, AB, ...)
+        function getColumnLetter(index) {
+            let result = '';
+            while (index >= 0) {
+                result = String.fromCharCode(65 + (index % 26)) + result;
+                index = Math.floor(index / 26) - 1;
+            }
+            return result;
+        }
+
+        // Enhanced cell selection system
+        let selectedCells = new Set();
+        let selectionStart = null;
+        let isSelecting = false;
+
+        function selectCell(row, col) {
+            clearSelection();
+            selectedCells.add(`${row}-${col}`);
+            selectionStart = { row, col };
+            updateCellSelection();
+        }
+
+        function selectRow(rowIndex) {
+            clearSelection();
+            for (let col = 0; col < tableData.headers.length; col++) {
+                selectedCells.add(`${rowIndex}-${col}`);
+            }
+            updateCellSelection();
+        }
+
+        function selectColumn(colIndex) {
+            clearSelection();
+            for (let row = 0; row < tableData.rows.length; row++) {
+                selectedCells.add(`${row}-${colIndex}`);
+            }
+            updateCellSelection();
+        }
+
+        function selectAll() {
+            clearSelection();
+            for (let row = 0; row < tableData.rows.length; row++) {
+                for (let col = 0; col < tableData.headers.length; col++) {
+                    selectedCells.add(`${row}-${col}`);
+                }
+            }
+            updateCellSelection();
+        }
+
+        function clearSelection() {
+            selectedCells.clear();
+            document.querySelectorAll('.selected, .row-selected, .column-selected').forEach(el => {
+                el.classList.remove('selected', 'row-selected', 'column-selected');
+            });
+        }
+
+        function updateCellSelection() {
+            // Clear previous selection
+            document.querySelectorAll('.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            // Apply new selection
+            selectedCells.forEach(cellKey => {
+                const [row, col] = cellKey.split('-').map(Number);
+                const cell = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
+                if (cell) {
+                    cell.classList.add('selected');
+                }
+            });
+
+            // Update toolbar button states
+            updateToolbarButtons();
+        }
+
+        function updateToolbarButtons() {
+            const hasSelection = selectedCells.size > 0;
+            const deleteRowBtn = document.getElementById('deleteRowBtn');
+            const deleteColBtn = document.getElementById('deleteColBtn');
+            
+            if (deleteRowBtn) deleteRowBtn.disabled = !hasSelection;
+            if (deleteColBtn) deleteColBtn.disabled = !hasSelection;
+        }
+
+        // Column resizing functionality
+        let isResizing = false;
+        let resizeColumn = -1;
+        let startX = 0;
+        let startWidth = 0;
+
+        function startColumnResize(event, colIndex) {
+            event.stopPropagation();
+            isResizing = true;
+            resizeColumn = colIndex;
+            startX = event.clientX;
+            
+            const header = document.querySelector(`th[data-col="${colIndex}"]`);
+            startWidth = header.offsetWidth;
+            
+            document.addEventListener('mousemove', handleColumnResize);
+            document.addEventListener('mouseup', stopColumnResize);
+            
+            // Prevent text selection during resize
+            document.body.style.userSelect = 'none';
+        }
+
+        function handleColumnResize(event) {
+            if (!isResizing) return;
+            
+            const deltaX = event.clientX - startX;
+            const newWidth = Math.max(60, startWidth + deltaX);
+            
+            // Apply new width to all cells in the column
+            const colCells = document.querySelectorAll(`th[data-col="${resizeColumn}"], td[data-col="${resizeColumn}"]`);
+            colCells.forEach(cell => {
+                cell.style.width = newWidth + 'px';
+                cell.style.minWidth = newWidth + 'px';
+            });
+        }
+
+        function stopColumnResize() {
+            isResizing = false;
+            resizeColumn = -1;
+            document.removeEventListener('mousemove', handleColumnResize);
+            document.removeEventListener('mouseup', stopColumnResize);
+            document.body.style.userSelect = '';
         }
 
         // Setup table event listeners
