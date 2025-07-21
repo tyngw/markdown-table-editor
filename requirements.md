@@ -116,6 +116,17 @@ VSCode拡張機能として、Markdownファイル内のテーブルをプレビ
 3. WHEN 無効なテーブル構造が検出される THEN システムは 警告メッセージと修正提案を表示する SHALL
 4. WHEN ファイルアクセス権限の問題がある THEN システムは 別名保存オプションを提供する SHALL
 
+### Requirement 11
+
+**User Story:** VSCodeユーザーとして、ユーザーインターフェースがより洗練され、直感的であることを望む。これにより、より効率的で快適なテーブル編集体験を得られる。
+
+#### Acceptance Criteria
+
+1. WHEN ステータスメッセージやエラーメッセージが表示される THEN システムは それらを画面下部に表示する SHALL
+2. WHEN テーブルエディタが表示される THEN システムは 不要なツールバーボタンを削除し、シンプルなUIを提供する SHALL
+3. WHEN ユーザーがセルを編集中である THEN 他のセルが選択された場合 編集モードを自動的に終了する SHALL
+4. WHEN ユーザーがセル編集中にテキストボックス内をクリックする THEN システムは 適切にカーソル位置を変更し、選択状態を解除する SHALL
+
 ## Implementation Requirements
 
 ### Multi-Table Support
