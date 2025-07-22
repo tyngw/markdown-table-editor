@@ -142,7 +142,6 @@
             resize: none;
             box-sizing: border-box;
             margin: 0;
-            min-height: 100%;
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow: hidden;
@@ -160,6 +159,7 @@
             padding: 0;
             position: relative;
             vertical-align: top;
+            box-sizing: border-box;
         }
 
         .table-editor td.editing .cell-input {
@@ -169,13 +169,14 @@
             width: 100%;
             height: 100%;
             z-index: 5;
+            box-sizing: border-box;
         }
 
         /* Textarea specific styling */
         .cell-input[data-multiline="true"] {
             overflow-y: auto;
             max-height: 200px;
-            min-height: 24px;
+            resize: vertical;
         }
 
         /* Column resize handle */
@@ -1352,10 +1353,9 @@
             // Get cell dimensions before modifying content
             const cellRect = cell.getBoundingClientRect();
             const cellStyles = window.getComputedStyle(cell);
-            const cellPaddingLeft = parseInt(cellStyles.paddingLeft, 10);
-            const cellPaddingRight = parseInt(cellStyles.paddingRight, 10);
-            const cellPaddingTop = parseInt(cellStyles.paddingTop, 10);
-            const cellPaddingBottom = parseInt(cellStyles.paddingBottom, 10);
+            
+            // Store original cell height to maintain consistency
+            const originalCellHeight = cellRect.height;
             
             cell.classList.add('editing');
             
@@ -1371,21 +1371,26 @@
             
             const input = cell.querySelector('.cell-input');
             
-            // Set initial dimensions to match cell size
+            // Set cell height to maintain original height initially
+            cell.style.height = originalCellHeight + 'px';
+            
+            // Set input dimensions
             if (isMultiLine) {
-                // For textarea, calculate appropriate height
-                const minHeight = Math.max(cellRect.height - cellPaddingTop - cellPaddingBottom, 24);
-                input.style.minHeight = minHeight + 'px';
+                // For textarea, start with the original cell height
                 input.style.width = '100%';
+                input.style.height = originalCellHeight + 'px';
+                input.style.minHeight = Math.max(originalCellHeight, 24) + 'px';
                 
                 // Auto-resize height based on content
                 const adjustHeight = () => {
+                    // Reset height to calculate scrollHeight accurately
                     input.style.height = 'auto';
-                    const newHeight = Math.max(input.scrollHeight, minHeight);
-                    input.style.height = newHeight + 'px';
+                    const contentHeight = input.scrollHeight;
+                    const newHeight = Math.max(contentHeight, originalCellHeight);
                     
-                    // Also adjust the cell height to accommodate content
-                    cell.style.height = (newHeight + cellPaddingTop + cellPaddingBottom) + 'px';
+                    // Update both input and cell heights
+                    input.style.height = newHeight + 'px';
+                    cell.style.height = newHeight + 'px';
                 };
                 
                 input.addEventListener('input', adjustHeight);
@@ -1393,9 +1398,9 @@
                 // Set initial height
                 setTimeout(adjustHeight, 0);
             } else {
-                // For single-line input, ensure it fills the cell properly
+                // For single-line input, maintain original cell height
                 input.style.width = '100%';
-                input.style.height = '100%';
+                input.style.height = originalCellHeight + 'px';
             }
             
             input.focus();
@@ -1467,6 +1472,7 @@
             
             // Reset any inline styles that were applied during editing
             currentEditingCell.element.style.height = '';
+            currentEditingCell.element.style.minHeight = '';
 
             // Send update to extension with storage format
             vscode.postMessage({
@@ -1493,6 +1499,7 @@
             
             // Reset any inline styles that were applied during editing
             currentEditingCell.element.style.height = '';
+            currentEditingCell.element.style.minHeight = '';
             
             currentEditingCell = null;
         }
