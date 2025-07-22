@@ -10,7 +10,7 @@ A VS Code extension that provides a spreadsheet-like interface for editing Markd
 - **Context Menu Operations**: Right-click on row/column headers for precise insertion and deletion
 - **Clean Interface**: Simplified toolbar with status messages at the bottom for focused editing
 - **Enhanced Editing**: Improved cell editing with better focus management and input handling
-- **Sorting**: Click column headers to sort table data
+- **View-Only Sorting**: Click column headers to sort table data without modifying the file (with option to save)
 - **Drag & Drop**: Reorder rows and columns by dragging
 - **Auto-save**: Changes are automatically saved back to your Markdown file
 - **Multiple Tables Support**: Handle multiple tables in a single document with table selection
@@ -48,7 +48,12 @@ A VS Code extension that provides a spreadsheet-like interface for editing Markd
 - **Column Operations**: Right-click on column headers for context menu with:
   - Add column left/right of current position
   - Delete current column (if not the last column)
-- **Sorting**: Click column headers to sort (click again to reverse order)
+- **View-Only Sorting**: Click column headers to sort table data:
+  - **Safe by Default**: Sorting only affects the display, not the file
+  - **Visual Indicators**: Sort controls appear when data is sorted
+  - **Restore Original**: Click "📄 Restore Original" to return to file order
+  - **Save Changes**: Click "💾 Save Sort to File" to make sort permanent
+  - **Numeric Support**: Automatically detects and sorts numbers correctly
 - **Drag & Drop**: Drag row/column headers to reorder
 - **Status Messages**: Error and save messages appear at the bottom for less intrusive feedback
 

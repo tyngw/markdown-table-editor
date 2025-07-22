@@ -4,11 +4,12 @@
 
 VSCode拡張機能「Markdown Table Editor」は、Markdownファイル内のテーブルをSpreadsheetライクなUIで編集できる機能を提供します。この拡張機能は、VSCodeのWebview APIを使用してカスタムエディタを実装し、Markdownファイルの解析・更新を行います。
 
-## Key Features (v0.1.7)
+## Key Features (v0.1.8)
 
 - **Spreadsheet-like Interface**: Excel風のグリッドエディタでテーブル編集
 - **Advanced Cell Editing**: 改善されたフォーカス管理、入力フィールドクリック時の編集継続
 - **Precise Row/Column Operations**: ヘッダードラッグで移動、リサイズハンドルで幅変更の分離
+- **View-Only Sorting**: デフォルトでファイル変更せず、表示のみをソート（明示的保存も可能）
 - **Multi-Table Support**: 複数テーブル文書での正確なテーブル選択・更新
 - **Mixed Content Compatibility**: コードブロック、リスト等と共存する堅牢性
 - **Enhanced UI/UX**: 下部ステータスバー、簡素化されたツールバー、直感的な操作
@@ -52,11 +53,12 @@ graph TB
    - Spreadsheetライクなインタラクション
    - 改善されたUI/UX（ステータスバー、簡素化されたツールバー）
 
-4. **Enhanced UI/UX Layer (v0.1.7)**
+4. **Enhanced UI/UX Layer (v0.1.8)**
    - 下部ステータスバーでのメッセージ表示
    - 分離された行列操作（移動 vs リサイズ）
    - 改善された編集フォーカス管理（入力フィールドクリック継続）
    - 精密なイベントハンドリング
+   - ビューオンリーソート機能とファイル保護
 
 ## Components and Interfaces
 
@@ -612,3 +614,148 @@ interface UIState {
 3. **Focus Management**: Smart editing behavior prevents data loss
 4. **Visual Clarity**: Clean interface promotes concentration on content
 5. **Responsive Design**: Improved interaction patterns for better usability
+
+## Sort Functionality Enhancement (v0.1.8)
+
+### Current Sort Implementation Issues
+
+- **File Modification**: Current implementation saves sort changes directly to the Markdown file
+- **Unwanted Persistence**: Users may want temporary sorting for viewing without affecting the original file
+- **Data Integrity**: Accidental sorting can modify the intended order of the original data
+
+### Enhanced Sort Design
+
+#### Core Concept: View-Only Sorting
+
+```typescript
+interface SortState {
+  column: number;
+  direction: 'asc' | 'desc' | 'none';
+  isViewOnly: boolean;  // New: Indicates if sort is temporary
+  originalData: TableData | null;  // New: Stores original table state
+}
+
+interface SortManager {
+  applySortView(column: number, direction: 'asc' | 'desc'): void;
+  restoreOriginalView(): void;
+  commitSortToFile(): void;  // Optional: Allow explicit saving
+  isTemporarySort(): boolean;
+}
+```
+
+#### Implementation Strategy
+
+1. **Dual Data Model**
+   ```typescript
+   interface TableEditorState {
+     originalData: TableData;     // Original file data (never modified by sort)
+     displayData: TableData;      // Data shown in UI (can be sorted)
+     sortState: SortState;        // Current sort configuration
+   }
+   ```
+
+2. **Sort Operations**
+   ```typescript
+   // View-only sort (default behavior)
+   function applySortView(column: number, direction: 'asc' | 'desc'): void {
+     // Store original data if not already stored
+     if (!sortState.originalData) {
+       sortState.originalData = cloneDeep(tableData);
+     }
+     
+     // Apply sort to display data only
+     displayData = sortTableData(displayData, column, direction);
+     sortState.column = column;
+     sortState.direction = direction;
+     sortState.isViewOnly = true;
+     
+     // Update UI with sorted data
+     renderTable(displayData);
+     updateSortIndicators();
+   }
+
+   // Restore original order
+   function restoreOriginalView(): void {
+     if (sortState.originalData) {
+       displayData = cloneDeep(sortState.originalData);
+       sortState = { column: -1, direction: 'none', isViewOnly: false, originalData: null };
+       renderTable(displayData);
+     }
+   }
+
+   // Optional: Commit sort to file
+   function commitSortToFile(): void {
+     if (sortState.isViewOnly && sortState.originalData) {
+       // Send sorted data to extension for file update
+       vscode.postMessage({
+         command: 'commitSort',
+         data: { sortedData: displayData }
+       });
+       
+       // Update original data to sorted state
+       sortState.originalData = null;
+       sortState.isViewOnly = false;
+     }
+   }
+   ```
+
+3. **UI Enhancements**
+   ```typescript
+   interface SortUI {
+     showSortIndicator(column: number, direction: 'asc' | 'desc'): void;
+     showTemporarySortBadge(): void;  // Visual indicator for temporary sort
+     showSortActions(): void;         // Restore/Commit buttons
+   }
+   ```
+
+#### User Interface Design
+
+1. **Sort Indicators**
+   - Visual arrows in column headers (▲/▼)
+   - Distinct styling for temporary vs committed sorts
+   - Badge or icon indicating "view-only" sort state
+
+2. **Sort Controls**
+   ```html
+   <!-- Sort actions when temporary sort is active -->
+   <div class="sort-actions" style="display: none;">
+     <button onclick="restoreOriginalView()">📄 Restore Original</button>
+     <button onclick="commitSortToFile()">💾 Save Sort to File</button>
+   </div>
+   ```
+
+3. **Status Bar Integration**
+   ```typescript
+   function updateSortStatus(): void {
+     if (sortState.isViewOnly) {
+       showStatus(`Viewing sorted by ${getColumnLetter(sortState.column)} (${sortState.direction}) - Original order preserved`);
+     }
+   }
+   ```
+
+#### Implementation Benefits
+
+1. **Data Safety**: Original file data is never accidentally modified by sorting
+2. **User Control**: Users can choose when to persist sort changes
+3. **Workflow Support**: Supports both temporary viewing and permanent reorganization
+4. **Clear Feedback**: Visual indicators show current sort state and options
+5. **Reversibility**: Easy restoration of original order at any time
+
+#### Message Protocol Extension
+
+```typescript
+type WebviewMessage = 
+  // ... existing messages
+  | { command: 'sortView'; data: { column: number; direction: 'asc' | 'desc' } }  // View-only sort
+  | { command: 'restoreOriginal'; data: {} }  // Restore original order
+  | { command: 'commitSort'; data: { sortedData: TableData } };  // Save sort to file
+```
+
+#### Implementation Phases
+
+1. **Phase 1**: Implement dual data model and view-only sorting
+2. **Phase 2**: Add UI controls for restore/commit operations
+3. **Phase 3**: Enhance visual indicators and status messages
+4. **Phase 4**: Add user preferences for default sort behavior
+
+This enhancement maintains the flexibility of the current sort feature while providing better control over data persistence and user intentions.
