@@ -4,10 +4,16 @@ A VS Code extension that provides a spreadsheet-like interface for editing Markd
 
 ## Features
 
-- **Spreadsheet-like Interface**: Edit Markdown tables in a familiar grid view
+- **Spreadsheet-like Interface**: Edit Markdown tables in a familiar grid view with sticky headers and row numbers
 - **Enhanced Cell Editing**: Adaptive text input with automatic single-line/multi-line detection and cell-size fitting
 - **HTML Break Tag Support**: Automatic conversion of `<br/>` tags to line breaks for natural editing experience
-- **Cell Navigation**: Use arrow keys, Tab, and Enter to navigate between cells
+- **Intuitive Navigation**: 
+  - Use arrow keys to navigate between cells
+  - **Enter** to start editing a cell
+  - **Esc** to confirm changes and exit editing
+  - **Tab** to move to next cell
+- **Standard Copy/Paste Support**: Full support for Ctrl+C, Ctrl+V, Ctrl+X, and other standard shortcuts during editing
+- **Always-Visible Headers**: Row numbers and column headers remain visible when scrolling for easy navigation
 - **Table Manipulation**: Add/delete rows and columns with intuitive context menus
 - **Context Menu Operations**: Right-click on row/column headers for precise insertion and deletion
 - **Clean Interface**: Simplified toolbar with status messages at the bottom for focused editing
@@ -83,11 +89,23 @@ This extension now robustly handles documents containing multiple tables and mix
 
 ## Keyboard Shortcuts
 
+### Navigation (Non-editing mode)
 - **Arrow Keys**: Navigate between cells
+- **Enter**: Start editing the selected cell
 - **Tab**: Move to next cell (or next row if at end)
 - **Shift+Tab**: Move to previous cell
-- **Enter**: Move to cell below (or confirm edit)
-- **Escape**: Cancel cell edit
+
+### Editing mode
+- **Enter**: Insert line break
+- **Ctrl+Enter / Cmd+Enter**: Confirm edit and exit editing mode
+- **Escape**: Confirm changes and exit editing mode
+- **Tab**: Confirm edit and move to next cell
+- **Ctrl+C / Cmd+C**: Copy selected text
+- **Ctrl+V / Cmd+V**: Paste text
+- **Ctrl+X / Cmd+X**: Cut selected text
+- **Ctrl+A / Cmd+A**: Select all text
+- **Ctrl+Z / Cmd+Z**: Undo
+- **Ctrl+Y / Cmd+Y**: Redo
 
 ## Requirements
 
@@ -105,6 +123,17 @@ This extension contributes the following settings:
 - Complex table formatting may be simplified during editing
 
 ## Release Notes
+
+### 0.1.13
+
+**Enhanced Keyboard Interactions & Spreadsheet-like UI**
+
+- **Improved Keyboard Navigation**: 
+  - Enter key now starts editing mode (instead of moving to next cell)
+  - Esc key confirms changes (instead of canceling)
+- **Standard Copy/Paste Support**: Full support for Ctrl+C, Ctrl+V, Ctrl+X, and other editing shortcuts during cell editing
+- **Always-Visible Headers**: Row numbers and column headers now remain visible when scrolling (sticky positioning)
+- **Spreadsheet-like Experience**: More intuitive interactions matching standard spreadsheet applications
 
 ### 0.1.7
 

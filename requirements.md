@@ -66,9 +66,12 @@ VSCode拡張機能として、Markdownファイル内のテーブルをプレビ
 #### Acceptance Criteria
 
 1. WHEN テーブルが表示される THEN システムは グリッド線、行番号、列ヘッダーを表示する SHALL
-2. WHEN ユーザーがキーボードの矢印キーを使用する THEN システムは セル間の移動を可能にする SHALL
-3. WHEN ユーザーがTabキーを押す THEN システムは 次のセルに移動する SHALL
-4. WHEN ユーザーがEnterキーを押す THEN システムは 下のセルに移動する SHALL
+2. WHEN テーブルをスクロールする THEN システムは 行番号と列ヘッダーを常に表示し続ける SHALL
+3. WHEN ユーザーがキーボードの矢印キーを使用する THEN システムは セル間の移動を可能にする SHALL
+4. WHEN ユーザーがTabキーを押す THEN システムは 次のセルに移動する SHALL
+5. WHEN ユーザーが未編集時にEnterキーを押す THEN システムは そのセルの編集モードに入る SHALL
+6. WHEN ユーザーが編集中にEscキーを押す THEN システムは 変更を確定して編集モードを終了する SHALL
+7. WHEN ユーザーが編集中にCtrl+C, Ctrl+V, Ctrl+X等を使用する THEN システムは 標準的なコピー・ペースト・切り取り操作を可能にする SHALL
 
 ### Requirement 6
 
