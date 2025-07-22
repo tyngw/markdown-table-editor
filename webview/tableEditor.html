@@ -21,6 +21,12 @@
             border-radius: 6px;
             background-color: var(--vscode-editor-background);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            /* スプレッドシート風のスクロール */
+            max-height: 80vh;
+            position: relative;
+            /* スクロール時のヘッダー固定を確実にする */
+            overflow-x: auto;
+            overflow-y: auto;
         }
 
         .table-editor {
@@ -32,6 +38,15 @@
             font-size: var(--vscode-editor-font-size, 14px);
             /* 行の高さを統一 */
             table-layout: fixed;
+            /* スティッキーヘッダーの基準となる */
+            position: relative;
+        }
+
+        /* テーブルヘッダー全体のスティッキー設定 */
+        .table-editor thead {
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
 
         /* Column headers */
@@ -43,7 +58,8 @@
             border-top: 2px solid var(--vscode-focusBorder);
             padding: 10px 12px;
             text-align: left;
-            position: relative;
+            position: sticky;
+            top: 0;
             min-width: 120px;
             font-weight: 600;
             cursor: pointer;
@@ -52,12 +68,17 @@
             transition: background-color 0.15s ease;
             /* 枠線をセル内側に描画してサイズ変更を防ぐ */
             box-sizing: border-box;
+            z-index: 100;
+            /* スティッキーヘッダーを確実に表示 */
+            background-clip: padding-box;
         }
 
         .table-editor th:hover {
             background: linear-gradient(180deg, 
                 var(--vscode-list-hoverBackground) 0%, 
                 var(--vscode-list-activeSelectionBackground) 100%);
+            /* ホバー時もスティッキーヘッダーを確実に表示 */
+            background-clip: padding-box;
         }
 
         .table-editor th:first-child {
@@ -86,9 +107,11 @@
             transition: background-color 0.15s ease;
             position: sticky;
             left: 0;
-            z-index: 10;
+            z-index: 90;
             /* 枠線をセル内側に描画してサイズ変更を防ぐ */
             box-sizing: border-box;
+            /* スティッキー要素を確実に表示 */
+            background-clip: padding-box;
         }
 
         .row-number:hover {
@@ -96,6 +119,8 @@
                 var(--vscode-list-hoverBackground) 0%, 
                 var(--vscode-list-activeSelectionBackground) 100%);
             color: var(--vscode-foreground);
+            /* ホバー時もスティッキー要素を確実に表示 */
+            background-clip: padding-box;
         }
 
         /* Data cells */
@@ -284,11 +309,14 @@
             max-width: 60px;
             position: sticky;
             left: 0;
-            z-index: 20;
+            top: 0;
+            z-index: 110;
             cursor: pointer;
             text-align: center;
             font-size: 16px;
             color: var(--vscode-descriptionForeground);
+            /* スティッキー要素を確実に表示 */
+            background-clip: padding-box;
         }
 
         .header-corner:hover {
@@ -296,6 +324,8 @@
                 var(--vscode-list-hoverBackground) 0%, 
                 var(--vscode-list-activeSelectionBackground) 100%);
             color: var(--vscode-foreground);
+            /* ホバー時もスティッキー要素を確実に表示 */
+            background-clip: padding-box;
         }
 
         /* Enhanced column headers */
@@ -1193,14 +1223,8 @@
         function handleKeyDown(event) {
             if (currentEditingCell) {
                 if (event.key === 'Escape') {
-                    cancelCellEdit();
-                } else if (event.key === 'Enter') {
+                    // Escで変更を反映（確定）
                     commitCellEdit();
-                    event.preventDefault();
-                    // Move to next row after commit
-                    if (selectionStart && selectionStart.row < tableData.rows.length - 1) {
-                        selectCell(selectionStart.row + 1, selectionStart.col);
-                    }
                 } else if (event.key === 'Tab') {
                     commitCellEdit();
                     event.preventDefault();
@@ -1208,6 +1232,26 @@
                     if (selectionStart) {
                         navigateToNextCell(selectionStart.row, selectionStart.col, !event.shiftKey);
                     }
+                }
+                // 編集中はコピー・ペースト・切り取りを通す
+                if (event.key === 'c' && (event.ctrlKey || event.metaKey)) {
+                    // Ctrl+C / Cmd+C - コピーを許可
+                    return;
+                } else if (event.key === 'v' && (event.ctrlKey || event.metaKey)) {
+                    // Ctrl+V / Cmd+V - ペーストを許可
+                    return;
+                } else if (event.key === 'x' && (event.ctrlKey || event.metaKey)) {
+                    // Ctrl+X / Cmd+X - 切り取りを許可
+                    return;
+                } else if (event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+                    // Ctrl+A / Cmd+A - 全選択を許可
+                    return;
+                } else if (event.key === 'z' && (event.ctrlKey || event.metaKey)) {
+                    // Ctrl+Z / Cmd+Z - アンドゥを許可
+                    return;
+                } else if (event.key === 'y' && (event.ctrlKey || event.metaKey)) {
+                    // Ctrl+Y / Cmd+Y - リドゥを許可
+                    return;
                 }
                 return;
             }
@@ -1241,7 +1285,8 @@
                     break;
                 case 'Enter':
                     event.preventDefault();
-                    navigateCell(selectionStart.row + 1, selectionStart.col);
+                    // Enterで編集モードに入る
+                    startCellEdit(selectionStart.row, selectionStart.col);
                     break;
                 case 'Home':
                     event.preventDefault();
@@ -1558,8 +1603,9 @@
                     // 改行後に高さを調整
                     setTimeout(adjustHeight, 0);
                 } else if (e.key === 'Escape') {
+                    // Escで変更を反映（確定）
                     e.preventDefault();
-                    cancelCellEdit();
+                    commitCellEdit();
                 } else if (e.key === 'Tab') {
                     e.preventDefault();
                     commitCellEdit();
@@ -1569,6 +1615,9 @@
                     if (nextRow < tableData.rows.length) {
                         setTimeout(() => startCellEdit(nextRow, nextCol), 10);
                     }
+                } else if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'a', 'z', 'y'].includes(e.key.toLowerCase())) {
+                    // コピー・ペースト・切り取り・全選択・アンドゥ・リドゥは通す
+                    return;
                 }
                 // Stop propagation to prevent other keyboard handlers
                 e.stopPropagation();
