@@ -578,6 +578,65 @@
             width: 16px;
             text-align: center;
         }
+
+        /* Sort Action Controls */
+        .sort-actions {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--vscode-notifications-background);
+            border: 1px solid var(--vscode-notifications-border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .sort-actions.visible {
+            display: flex;
+        }
+
+        .sort-action-btn {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 11px;
+            margin: 0 2px;
+        }
+
+        .sort-action-btn:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .sort-action-btn.secondary {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+
+        .sort-action-btn.secondary:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .sort-status-badge {
+            font-size: 11px;
+            color: var(--vscode-notifications-foreground);
+            margin-right: 8px;
+        }
+
+        /* Enhanced Sort Indicators */
+        .sort-indicator.view-only {
+            color: var(--vscode-statusBarItem-warningForeground);
+        }
+
+        .sort-indicator.committed {
+            color: var(--vscode-statusBarItem-prominentForeground);
+        }
     </style>
 </head>
 <body>
@@ -589,7 +648,16 @@
         // Global state
         let tableData = null;
         let currentEditingCell = null;
-        let sortState = { column: -1, direction: 'none' };
+        let sortState = { 
+            column: -1, 
+            direction: 'none',
+            isViewOnly: false,
+            originalData: null
+        };
+
+        // Enhanced sorting state management
+        let displayData = null;  // Data currently shown in UI
+        let originalData = null; // Original file data (for view-only sorting)
 
         // VSCode API
         const vscode = acquireVsCodeApi();
@@ -611,7 +679,13 @@
                 return;
             }
 
+            // Initialize data models on first render
+            if (!originalData) {
+                originalData = JSON.parse(JSON.stringify(data)); // Deep clone
+            }
+            
             tableData = data;
+            displayData = data; // Currently displayed data
             
             const app = document.getElementById('app');
             app.innerHTML = `
@@ -619,6 +693,13 @@
                     <table class="table-editor" id="tableEditor">
                         ${renderTableContent()}
                     </table>
+                </div>
+                
+                <!-- Sort Actions Panel -->
+                <div class="sort-actions" id="sortActions">
+                    <span class="sort-status-badge">📊 Viewing sorted data</span>
+                    <button class="sort-action-btn secondary" onclick="restoreOriginalView()">📄 Restore Original</button>
+                    <button class="sort-action-btn" onclick="commitSortToFile()">💾 Save Sort to File</button>
                 </div>
                 
                 <!-- Context Menus -->
@@ -657,6 +738,7 @@
                 <div class="status-bar">
                     <div class="status-info">
                         <span>Rows: ${data.rows.length} | Columns: ${data.headers.length}</span>
+                        <span id="sortStatusInfo" style="display: none;"></span>
                     </div>
                     <div class="status-messages" id="statusMessages">
                         <span class="save-indicator saved" id="saveIndicator">✓ Auto-saved</span>
@@ -665,11 +747,13 @@
             `;
 
             setupTableEvents();
+            updateSortActionsVisibility();
         }
 
         // Render table content
         function renderTableContent() {
-            if (!tableData) return '';
+            const dataToRender = displayData || tableData;
+            if (!dataToRender) return '';
 
             let html = '<thead><tr>';
             
@@ -677,8 +761,9 @@
             html += '<th class="header-corner" onclick="selectAll()" title="Select All">⚏</th>';
             
             // Column headers with enhanced styling
-            tableData.headers.forEach((header, index) => {
+            dataToRender.headers.forEach((header, index) => {
                 const sortClass = sortState.column === index ? `sort-${sortState.direction}` : '';
+                const sortIndicatorClass = sortState.isViewOnly ? 'view-only' : 'committed';
                 const columnLetter = getColumnLetter(index);
                 html += `<th onclick="handleColumnHeaderClick(${index}, event)" 
                            onmousedown="startColumnDrag(${index}, event)"
@@ -689,7 +774,7 @@
                     <div class="header-content">
                         <span class="column-letter">${columnLetter}</span>
                         <span class="header-text">${escapeHtml(header)}</span>
-                        <span class="sort-indicator"></span>
+                        <span class="sort-indicator ${sortIndicatorClass}"></span>
                     </div>
                     <div class="resize-handle" 
                          onclick="event.stopPropagation()" 
@@ -700,7 +785,7 @@
             html += '</tr></thead><tbody>';
             
             // Data rows with enhanced styling
-            tableData.rows.forEach((row, rowIndex) => {
+            dataToRender.rows.forEach((row, rowIndex) => {
                 html += `<tr data-row="${rowIndex}">`;
                 
                 // Row number with selection capability
@@ -817,23 +902,24 @@
         }
 
         function selectRow(rowIndex, event = null) {
+            const currentData = displayData || tableData;
             if (event && (event.ctrlKey || event.metaKey)) {
                 // Toggle row selection
                 const isRowSelected = isRowFullySelected(rowIndex);
                 if (isRowSelected) {
                     // Remove this row from selection
-                    for (let col = 0; col < tableData.headers.length; col++) {
+                    for (let col = 0; col < currentData.headers.length; col++) {
                         selectedCells.delete(`${rowIndex}-${col}`);
                     }
                 } else {
                     // Add this row to selection
-                    for (let col = 0; col < tableData.headers.length; col++) {
+                    for (let col = 0; col < currentData.headers.length; col++) {
                         selectedCells.add(`${rowIndex}-${col}`);
                     }
                 }
             } else {
                 clearSelection();
-                for (let col = 0; col < tableData.headers.length; col++) {
+                for (let col = 0; col < currentData.headers.length; col++) {
                     selectedCells.add(`${rowIndex}-${col}`);
                 }
             }
@@ -841,23 +927,24 @@
         }
 
         function selectColumn(colIndex, event = null) {
+            const currentData = displayData || tableData;
             if (event && (event.ctrlKey || event.metaKey)) {
                 // Toggle column selection
                 const isColSelected = isColumnFullySelected(colIndex);
                 if (isColSelected) {
                     // Remove this column from selection
-                    for (let row = 0; row < tableData.rows.length; row++) {
+                    for (let row = 0; row < currentData.rows.length; row++) {
                         selectedCells.delete(`${row}-${colIndex}`);
                     }
                 } else {
                     // Add this column to selection
-                    for (let row = 0; row < tableData.rows.length; row++) {
+                    for (let row = 0; row < currentData.rows.length; row++) {
                         selectedCells.add(`${row}-${colIndex}`);
                     }
                 }
             } else {
                 clearSelection();
-                for (let row = 0; row < tableData.rows.length; row++) {
+                for (let row = 0; row < currentData.rows.length; row++) {
                     selectedCells.add(`${row}-${colIndex}`);
                 }
             }
@@ -865,7 +952,8 @@
         }
 
         function isRowFullySelected(rowIndex) {
-            for (let col = 0; col < tableData.headers.length; col++) {
+            const currentData = displayData || tableData;
+            for (let col = 0; col < currentData.headers.length; col++) {
                 if (!selectedCells.has(`${rowIndex}-${col}`)) {
                     return false;
                 }
@@ -874,7 +962,8 @@
         }
 
         function isColumnFullySelected(colIndex) {
-            for (let row = 0; row < tableData.rows.length; row++) {
+            const currentData = displayData || tableData;
+            for (let row = 0; row < currentData.rows.length; row++) {
                 if (!selectedCells.has(`${row}-${colIndex}`)) {
                     return false;
                 }
@@ -884,8 +973,9 @@
 
         function selectAll() {
             clearSelection();
-            for (let row = 0; row < tableData.rows.length; row++) {
-                for (let col = 0; col < tableData.headers.length; col++) {
+            const currentData = displayData || tableData;
+            for (let row = 0; row < currentData.rows.length; row++) {
+                for (let col = 0; col < currentData.headers.length; col++) {
                     selectedCells.add(`${row}-${col}`);
                 }
             }
@@ -1172,11 +1262,23 @@
 
         // Clear content of selected cells
         function clearSelectedCells() {
+            // Warning if in view-only sort mode
+            if (sortState.isViewOnly) {
+                if (!confirm('You are viewing sorted data. Clearing cells will affect the display only. Do you want to continue?')) {
+                    return;
+                }
+            }
+
+            const currentData = displayData || tableData;
             const updates = [];
             selectedCells.forEach(cellKey => {
                 const [row, col] = cellKey.split('-').map(Number);
-                if (tableData.rows[row] && tableData.rows[row][col] !== undefined) {
-                    tableData.rows[row][col] = '';
+                if (currentData.rows[row] && currentData.rows[row][col] !== undefined) {
+                    currentData.rows[row][col] = '';
+                    // Also update base table data if not in view-only mode
+                    if (!sortState.isViewOnly && tableData.rows[row]) {
+                        tableData.rows[row][col] = '';
+                    }
                     updates.push({ row, col, value: '' });
                 }
             });
@@ -1193,13 +1295,15 @@
                 }
             });
 
-            // Send updates to extension
-            updates.forEach(update => {
-                vscode.postMessage({
-                    command: 'updateCell',
-                    data: update
+            // Send updates to extension only if not in view-only mode
+            if (!sortState.isViewOnly) {
+                updates.forEach(update => {
+                    vscode.postMessage({
+                        command: 'updateCell',
+                        data: update
+                    });
                 });
-            });
+            }
         }
 
         // Start editing a cell
@@ -1323,24 +1427,171 @@
                 // Multi-selection mode
                 selectColumn(columnIndex, event);
             } else {
-                // Normal sort mode
-                sortByColumn(columnIndex);
+                // Normal sort mode - apply view-only sort
+                applySortView(columnIndex);
             }
         }
 
-        // Sort by column
-        function sortByColumn(columnIndex) {
+        // Apply view-only sort (does not modify file)
+        function applySortView(columnIndex) {
             let direction = 'asc';
             if (sortState.column === columnIndex) {
                 direction = sortState.direction === 'asc' ? 'desc' : 'asc';
             }
 
-            sortState = { column: columnIndex, direction };
+            // Store original data if this is the first sort
+            if (!sortState.isViewOnly) {
+                sortState.originalData = JSON.parse(JSON.stringify(tableData));
+                sortState.isViewOnly = true;
+            }
 
-            vscode.postMessage({
-                command: 'sort',
-                data: { column: columnIndex, direction }
+            // Apply sort to display data
+            displayData = sortTableData(displayData || tableData, columnIndex, direction);
+            sortState.column = columnIndex;
+            sortState.direction = direction;
+
+            // Re-render table with sorted data
+            const tableContainer = document.querySelector('.table-container');
+            if (tableContainer) {
+                tableContainer.innerHTML = `
+                    <table class="table-editor" id="tableEditor">
+                        ${renderTableContent()}
+                    </table>
+                `;
+            }
+
+            // Update UI indicators
+            updateSortActionsVisibility();
+            updateSortStatusInfo();
+            setupTableEvents();
+        }
+
+        // Sort table data utility function
+        function sortTableData(data, columnIndex, direction) {
+            const sortedData = JSON.parse(JSON.stringify(data)); // Deep clone
+            
+            const sortedIndices = sortedData.rows.map((row, index) => ({
+                index,
+                value: row[columnIndex] || '',
+                row
+            }));
+
+            sortedIndices.sort((a, b) => {
+                const aVal = a.value.toString().toLowerCase();
+                const bVal = b.value.toString().toLowerCase();
+                
+                // Try numeric comparison first
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return direction === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                
+                // Fall back to string comparison
+                if (direction === 'asc') {
+                    return aVal.localeCompare(bVal);
+                } else {
+                    return bVal.localeCompare(aVal);
+                }
             });
+
+            sortedData.rows = sortedIndices.map(item => item.row);
+            return sortedData;
+        }
+
+        // Restore original view (before any sorting)
+        function restoreOriginalView() {
+            if (sortState.originalData) {
+                displayData = JSON.parse(JSON.stringify(sortState.originalData));
+                tableData = displayData;
+                
+                // Reset sort state
+                sortState = {
+                    column: -1,
+                    direction: 'none',
+                    isViewOnly: false,
+                    originalData: null
+                };
+
+                // Re-render table
+                const tableContainer = document.querySelector('.table-container');
+                if (tableContainer) {
+                    tableContainer.innerHTML = `
+                        <table class="table-editor" id="tableEditor">
+                            ${renderTableContent()}
+                        </table>
+                    `;
+                }
+
+                updateSortActionsVisibility();
+                updateSortStatusInfo();
+                setupTableEvents();
+                showSuccess('Original table order restored');
+            }
+        }
+
+        // Commit current sort to file
+        function commitSortToFile() {
+            if (sortState.isViewOnly && displayData) {
+                // Send the sorted data to extension for file update
+                vscode.postMessage({
+                    command: 'updateTableData',
+                    data: displayData
+                });
+
+                // Update the base table data and reset sort state
+                tableData = JSON.parse(JSON.stringify(displayData));
+                originalData = JSON.parse(JSON.stringify(displayData));
+                
+                sortState = {
+                    column: sortState.column,
+                    direction: sortState.direction,
+                    isViewOnly: false,
+                    originalData: null
+                };
+
+                updateSortActionsVisibility();
+                updateSortStatusInfo();
+                showSuccess('Sort order saved to file');
+            }
+        }
+
+        // Update sort actions panel visibility
+        function updateSortActionsVisibility() {
+            const sortActions = document.getElementById('sortActions');
+            if (sortActions) {
+                if (sortState.isViewOnly) {
+                    sortActions.classList.add('visible');
+                } else {
+                    sortActions.classList.remove('visible');
+                }
+            }
+        }
+
+        // Update sort status information
+        function updateSortStatusInfo() {
+            const statusInfo = document.getElementById('sortStatusInfo');
+            if (statusInfo) {
+                if (sortState.isViewOnly && sortState.column >= 0) {
+                    const columnLetter = getColumnLetter(sortState.column);
+                    statusInfo.textContent = ` | Sorted by ${columnLetter} (${sortState.direction.toUpperCase()}) - View Only`;
+                    statusInfo.style.display = 'inline';
+                    statusInfo.style.color = 'var(--vscode-statusBarItem-warningForeground)';
+                } else if (!sortState.isViewOnly && sortState.column >= 0) {
+                    const columnLetter = getColumnLetter(sortState.column);
+                    statusInfo.textContent = ` | Sorted by ${columnLetter} (${sortState.direction.toUpperCase()}) - Saved`;
+                    statusInfo.style.display = 'inline';
+                    statusInfo.style.color = 'var(--vscode-statusBarItem-prominentForeground)';
+                } else {
+                    statusInfo.style.display = 'none';
+                }
+            }
+        }
+
+        // Legacy sort function (kept for compatibility)
+        function sortByColumn(columnIndex) {
+            // Redirect to view-only sort
+            applySortView(columnIndex);
         }
 
         // Utility function to escape HTML
