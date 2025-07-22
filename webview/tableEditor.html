@@ -171,9 +171,8 @@
             height: 100%;
             z-index: 5;
             box-sizing: border-box;
-            display: flex;
-            align-items: flex-start;
-            text-align: left;
+            padding-top: 0;
+            padding-bottom: 0;
         }
 
         /* Textarea specific styling */
@@ -1396,6 +1395,12 @@
                 input.style.whiteSpace = 'pre-wrap';
                 input.style.wordWrap = 'break-word';
                 input.style.overflow = 'auto';
+                input.style.paddingTop = '8px';
+                input.style.paddingLeft = '12px';
+                input.style.paddingRight = '12px';
+                input.style.paddingBottom = '8px';
+                input.style.margin = '0';
+                input.style.lineHeight = '1.4';
                 
                 // Auto-resize height based on content while maintaining width
                 const adjustHeight = () => {
@@ -1422,6 +1427,12 @@
                 input.style.textAlign = 'left';
                 input.style.whiteSpace = 'nowrap';
                 input.style.overflow = 'hidden';
+                input.style.paddingTop = '8px';
+                input.style.paddingLeft = '12px';
+                input.style.paddingRight = '12px';
+                input.style.paddingBottom = '8px';
+                input.style.margin = '0';
+                input.style.lineHeight = '1.4';
             }
             
             input.focus();
