@@ -1700,20 +1700,26 @@
             applySortView(columnIndex);
         }
 
-        // Convert HTML break tags to newlines and properly escape content for display
+        // Convert HTML break tags to newlines and properly format for display
         function processCellContent(content) {
             if (!content) return '';
             
-            // First convert <br> and <br/> tags to newlines
-            let processedContent = content
-                .replace(/<br\s*\/?>/gi, '\n')
-                .replace(/<BR\s*\/?>/gi, '\n');
+            console.log('Processing cell content:', content);
             
-            // Then escape HTML to prevent XSS and preserve line breaks
-            return escapeHtmlWithLineBreaks(processedContent);
+            // Convert <br> and <br/> tags to actual HTML <br> tags for display
+            let processedContent = content
+                .replace(/<br\s*\/?>/gi, '<br>')
+                .replace(/<BR\s*\/?>/gi, '<br>');
+            
+            console.log('After BR tag conversion:', processedContent);
+            
+            // Escape other HTML content while preserving our <br> tags
+            const result = escapeHtmlExceptBreaks(processedContent);
+            console.log('Final result:', result);
+            return result;
         }
 
-        // Convert HTML break tags to newlines for editing (reverse process)
+        // Convert HTML break tags to newlines for editing
         function processCellContentForEditing(content) {
             if (!content) return '';
             
@@ -1731,15 +1737,23 @@
             return content.replace(/\n/g, '<br/>');
         }
 
-        // Enhanced HTML escaping that preserves line breaks as <br> tags
-        function escapeHtmlWithLineBreaks(text) {
+        // Escape HTML content while preserving <br> tags
+        function escapeHtmlExceptBreaks(text) {
             if (!text) return '';
+            
+            // First, temporarily replace <br> tags with a placeholder
+            const placeholder = '###BR_PLACEHOLDER###';
+            let processedText = text.replace(/<br>/gi, placeholder);
+            
+            // Escape the rest of the HTML
             const div = document.createElement('div');
-            // First escape the text
-            div.textContent = text;
+            div.textContent = processedText;
             let escaped = div.innerHTML;
-            // Then convert newlines to <br> tags for display
-            return escaped.replace(/\n/g, '<br>');
+            
+            // Restore <br> tags
+            escaped = escaped.replace(new RegExp(placeholder, 'g'), '<br>');
+            
+            return escaped;
         }
 
         // Utility function to escape HTML

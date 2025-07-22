@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
+## [0.1.11] - 2025-07-22
+
+### Fixed
+- **HTML Break Tag Display**: Fixed issue where `<br/>` tags were not properly converted to line breaks in display
+- **Break Tag Processing**: Improved `processCellContent()` function to correctly handle HTML break tag conversion
+- **HTML Escaping**: Enhanced `escapeHtmlExceptBreaks()` to preserve break tags while escaping other HTML content
+- **Debug Logging**: Added temporary debug logging to troubleshoot break tag processing
+
+### Technical Improvements
+- Fixed HTML break tag display rendering
+- Improved cell content processing pipeline
+- Enhanced HTML escaping logic for break tags
+
 ## [0.1.10] - 2025-07-22
 
 ### Enhanced
