@@ -41,7 +41,7 @@ export class WebviewManager {
             console.log('Panel already exists, revealing...');
             const existingPanel = this.panels.get(panelId)!;
             existingPanel.reveal();
-            this.updateTableData(existingPanel, tableData);
+            this.updateTableData(existingPanel, tableData, uri);
             return existingPanel;
         }
 
@@ -106,7 +106,7 @@ export class WebviewManager {
         // Send initial data after a short delay to ensure webview is ready
         setTimeout(() => {
             console.log('Sending initial table data to webview...');
-            this.updateTableData(panel, tableData);
+            this.updateTableData(panel, tableData, uri);
         }, 100);
 
         console.log('Webview panel setup complete');
@@ -116,11 +116,23 @@ export class WebviewManager {
     /**
      * Update table data in the webview
      */
-    public updateTableData(panel: vscode.WebviewPanel, tableData: TableData): void {
-        panel.webview.postMessage({
+    public updateTableData(panel: vscode.WebviewPanel, tableData: TableData, uri?: vscode.Uri): void {
+        const message: any = {
             command: 'updateTableData',
             data: tableData
-        });
+        };
+        
+        // Include file information if URI is provided
+        if (uri) {
+            const path = require('path');
+            message.fileInfo = {
+                uri: uri.toString(),
+                fileName: path.basename(uri.fsPath),
+                fileNameWithoutExt: path.basename(uri.fsPath, path.extname(uri.fsPath))
+            };
+        }
+        
+        panel.webview.postMessage(message);
     }
 
     /**

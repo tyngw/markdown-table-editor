@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # Changelog
 
+## [0.1.23] - 2025-01-27
+
+### Enhanced
+- **CSV Export Improvements**: 
+  - Enhanced CSV field escaping with RFC 4180 compliance for multi-line text
+  - Improved quote handling for fields containing commas, quotes, newlines, or whitespace
+  - Smart filename generation using original Markdown filename (e.g., "document.md" → "document.csv")
+  - Fallback to timestamp-based naming if original filename unavailable
+
+### Technical Improvements
+- **File Information Passing**: Extended webview communication to include file metadata
+- **Enhanced Field Escaping**: Comprehensive CSV field escaping for all edge cases:
+  - Multi-line text with proper newline handling
+  - Leading/trailing whitespace detection and quoting
+  - Double quote escaping following RFC 4180 standard
+  - Comma and special character handling
+- **Webview-Extension Communication**: Enhanced message protocol to pass file information for better user experience
+
+### User Experience
+- **Intuitive Filenames**: CSV exports now suggest meaningful filenames based on source document
+- **Proper Multi-line Support**: Complex cell content with line breaks exports correctly to CSV
+- **Standards Compliance**: CSV output follows industry standards for maximum compatibility with Excel, Google Sheets, etc.
+
 ## [0.1.22] - 2025-01-27
 
 ### Fixed

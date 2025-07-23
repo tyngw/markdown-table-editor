@@ -172,7 +172,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             if (tableDataManager) {
                 const tableData = tableDataManager.getTableData();
-                webviewManager.updateTableData(panel, tableData);
+                webviewManager.updateTableData(panel, tableData, uri);
                 
                 // Don't send success message for refreshes to avoid spam
                 if (!forceRefresh) {
@@ -223,7 +223,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             // Don't send success message - webview will handle auto-saved status
         } catch (error) {
             console.error('Error in updateCell:', error);
@@ -264,7 +264,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, 'Row added successfully');
         } catch (error) {
             console.error('Error in addRow:', error);
@@ -305,7 +305,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, 'Row deleted successfully');
         } catch (error) {
             console.error('Error in deleteRow:', error);
@@ -346,7 +346,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, 'Column added successfully');
         } catch (error) {
             console.error('Error in addColumn:', error);
@@ -387,7 +387,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, 'Column deleted successfully');
         } catch (error) {
             console.error('Error in deleteColumn:', error);
@@ -428,7 +428,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, `Table sorted by column ${column} (${direction})`);
         } catch (error) {
             console.error('Error in sort:', error);
@@ -469,7 +469,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, `Row moved from ${from} to ${to}`);
         } catch (error) {
             console.error('Error in moveRow:', error);
@@ -510,7 +510,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             // Send updated data back to webview
-            webviewManager.updateTableData(panel, tableDataManager.getTableData());
+            webviewManager.updateTableData(panel, tableDataManager.getTableData(), uri);
             webviewManager.sendSuccess(panel, `Column moved from ${from} to ${to}`);
         } catch (error) {
             console.error('Error in moveColumn:', error);
