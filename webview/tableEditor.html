@@ -46,6 +46,9 @@
         // Enhanced sorting state management
         let displayData = null;  // Data currently shown in UI
         let originalData = null; // Original file data (for view-only sorting)
+        
+        // File information for CSV export
+        let fileInfo = null;
 
         // VSCode API
         const vscode = acquireVsCodeApi();
@@ -1261,9 +1264,22 @@
             
             const stringField = String(field);
             
-            // If field contains comma, quote, or newline, wrap in quotes and escape quotes
-            if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n') || stringField.includes('\r')) {
-                // Escape existing quotes by doubling them
+            // Always wrap in quotes if field contains:
+            // - comma (,)
+            // - double quote (")
+            // - newline (\n or \r\n)
+            // - carriage return (\r)
+            // - starts or ends with whitespace
+            const needsQuoting = stringField.includes(',') || 
+                               stringField.includes('"') || 
+                               stringField.includes('\n') || 
+                               stringField.includes('\r') || 
+                               stringField.startsWith(' ') || 
+                               stringField.endsWith(' ') ||
+                               stringField !== stringField.trim();
+            
+            if (needsQuoting) {
+                // Escape existing quotes by doubling them (RFC 4180 standard)
                 const escapedField = stringField.replace(/"/g, '""');
                 return `"${escapedField}"`;
             }
@@ -1273,6 +1289,12 @@
 
         // Get default CSV filename based on current context
         function getDefaultCSVFilename() {
+            // Use original filename if available
+            if (fileInfo && fileInfo.fileNameWithoutExt) {
+                return `${fileInfo.fileNameWithoutExt}.csv`;
+            }
+            
+            // Fallback to timestamp-based filename
             const now = new Date();
             const timestamp = now.toISOString().slice(0, 19).replace(/[:.]/g, '-');
             return `table-export-${timestamp}.csv`;
@@ -1886,6 +1908,12 @@
             
             switch (message.command) {
                 case 'updateTableData':
+                    // Store file information if provided
+                    if (message.fileInfo) {
+                        fileInfo = message.fileInfo;
+                        console.log('File info received:', fileInfo);
+                    }
+                    
                     renderTableWithScrollPreservation(message.data);
                     // Show auto-saved status when table data is updated from server
                     showAutoSavedStatus();
