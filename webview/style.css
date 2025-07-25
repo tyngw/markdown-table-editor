@@ -150,15 +150,17 @@ body {
 }
 
 /* Row numbers - 完全に不透過で固定 */
-.row-number {
+.table-editor td.row-number {
     background-color: var(--vscode-editor-lineHighlightBackground);
     border: 1px solid var(--vscode-panel-border);
     border-left: 2px solid var(--vscode-focusBorder);
-    font-weight: 600;
-    text-align: center; /* 中央揃えに変更 */
+    font-weight: 700; /* 太字を強化 */
+    text-align: left; /* 左寄せに変更 */
     vertical-align: middle;
-    padding: 4px 12px; /* 左右のパディングを増加 */
+    padding: 0 8px; /* 左右8pxのパディング */
     width: 60px;
+    min-width: 60px;
+    max-width: 60px;
     user-select: none;
     color: var(--vscode-descriptionForeground);
     cursor: pointer;
@@ -174,7 +176,7 @@ body {
     background-color: var(--vscode-editor-lineHighlightBackground) !important;
 }
 
-.row-number:hover {
+.table-editor td.row-number:hover {
     background-color: var(--vscode-list-hoverBackground) !important;
     color: var(--vscode-foreground);
     /* ホバー時も完全に不透過でスクロール時固定表示を保持 */
@@ -182,7 +184,8 @@ body {
 }
 
 /* Data cells */
-.table-editor td {
+.table-editor td.data-cell,
+.table-editor td.editable-cell {
     background-color: var(--vscode-editor-background);
     border: 1px solid var(--vscode-panel-border);
     padding: 0 !important;
@@ -210,25 +213,18 @@ body {
 }
 
 /* ユーザーがリサイズした後は、より小さな最小幅を許可するクラス */
-.table-editor td.user-resized {
+.table-editor td.data-cell.user-resized,
+.table-editor td.editable-cell.user-resized {
     min-width: 80px;
 }
 
-.table-editor td:hover {
+.table-editor td.data-cell:hover,
+.table-editor td.editable-cell:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.table-editor td.selected {
-    background-color: var(--vscode-list-activeSelectionBackground);
-    /* outlineを使用してセルの内部サイズを変更しない */
-    outline: 2px solid var(--vscode-focusBorder);
-    outline-offset: -1px;
-    /* パディングは変更しない */
-    /* 高さを内容に応じて自動調整 */
-    height: auto;
-}
-
-.table-editor td.editing {
+.table-editor td.data-cell.editing,
+.table-editor td.editable-cell.editing {
     padding: 0 !important;
     /* パディングを完全に削除 */
     background-color: var(--vscode-input-background);
@@ -245,11 +241,13 @@ body {
 }
 
 /* Grid lines enhancement */
-.table-editor tr:nth-child(even) td:not(.row-number) {
+.table-editor tr:nth-child(even) td.data-cell,
+.table-editor tr:nth-child(even) td.editable-cell {
     background-color: var(--vscode-editor-lineHighlightBackground);
 }
 
-.table-editor tr:nth-child(even) td:hover {
+.table-editor tr:nth-child(even) td.data-cell:hover,
+.table-editor tr:nth-child(even) td.editable-cell:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
@@ -289,7 +287,8 @@ textarea.cell-input {
 
 /* 重複削除 - 上のセル定義を使用 */
 
-.table-editor td.editing textarea.cell-input {
+.table-editor td.data-cell.editing textarea.cell-input,
+.table-editor td.editable-cell.editing textarea.cell-input {
     position: absolute;
     top: 0;
     left: 0;
@@ -352,9 +351,10 @@ textarea.cell-input[data-multiline="true"] {
     opacity: 0.9;
 }
 
-/* Selection indicators */
-.cell-selected {
+/* Selection indicators - 統一されたスタイル */
+.table-editor td.data-cell.selected {
     background-color: var(--vscode-list-activeSelectionBackground) !important;
+    color: var(--vscode-list-activeSelectionForeground) !important;
     /* outlineを使用してセルの内部サイズを変更しない */
     outline: 2px solid var(--vscode-focusBorder) !important;
     outline-offset: -1px !important;
@@ -363,7 +363,19 @@ textarea.cell-input[data-multiline="true"] {
     height: auto !important;
 }
 
-.cell-multi-selected {
+/* editable-cellクラスにも対応 */
+.table-editor td.editable-cell.selected {
+    background-color: var(--vscode-list-activeSelectionBackground) !important;
+    color: var(--vscode-list-activeSelectionForeground) !important;
+    /* outlineを使用してセルの内部サイズを変更しない */
+    outline: 2px solid var(--vscode-focusBorder) !important;
+    outline-offset: -1px !important;
+    box-sizing: border-box !important;
+    /* 高さを内容に応じて自動調整 */
+    height: auto !important;
+}
+
+.table-editor td.data-cell.cell-multi-selected {
     background-color: var(--vscode-list-inactiveSelectionBackground) !important;
     /* outlineを使用（薄い選択表示） */
     outline: 1px solid var(--vscode-list-activeSelectionForeground) !important;
@@ -373,11 +385,29 @@ textarea.cell-input[data-multiline="true"] {
     height: auto !important;
 }
 
-.column-selected {
+.table-editor td.editable-cell.cell-multi-selected {
+    background-color: var(--vscode-list-inactiveSelectionBackground) !important;
+    /* outlineを使用（薄い選択表示） */
+    outline: 1px solid var(--vscode-list-activeSelectionForeground) !important;
+    outline-offset: -1px !important;
+    box-sizing: border-box !important;
+    /* 高さを内容に応じて自動調整 */
+    height: auto !important;
+}
+
+.table-editor td.data-cell.column-selected {
     background-color: var(--vscode-list-activeSelectionBackground) !important;
 }
 
-.row-selected {
+.table-editor td.editable-cell.column-selected {
+    background-color: var(--vscode-list-activeSelectionBackground) !important;
+}
+
+.table-editor td.data-cell.row-selected {
+    background-color: var(--vscode-list-activeSelectionBackground) !important;
+}
+
+.table-editor td.editable-cell.row-selected {
     background-color: var(--vscode-list-activeSelectionBackground) !important;
 }
 
@@ -389,10 +419,10 @@ textarea.cell-input[data-multiline="true"] {
     border: 2px solid var(--vscode-focusBorder);
     border-bottom: 1px solid var(--vscode-panel-border);
     border-right: 1px solid var(--vscode-panel-border);
-    width: 70px;
-    /* 行番号列に合わせて70pxに変更 */
-    min-width: 70px;
-    max-width: 70px;
+    width: 60px;
+    /* 行番号列に合わせて60pxに変更 */
+    min-width: 60px;
+    max-width: 60px;
     position: sticky;
     left: 0;
     top: 0;
@@ -507,18 +537,8 @@ textarea.cell-input[data-multiline="true"] {
 }
 
 /* Selection enhancements */
-.data-cell.selected {
-    background-color: var(--vscode-list-activeSelectionBackground) !important;
-    color: var(--vscode-list-activeSelectionForeground);
-    /* outlineを使用してセルの内部サイズを変更しない */
-    outline: 2px solid var(--vscode-focusBorder) !important;
-    outline-offset: -1px !important;
-    box-sizing: border-box !important;
-    /* 高さを内容に応じて自動調整 */
-    height: auto !important;
-}
 
-.row-number.selected,
+.table-editor td.row-number.selected,
 .column-header.selected {
     background: var(--vscode-list-activeSelectionBackground) !important;
     color: var(--vscode-list-activeSelectionForeground);
@@ -531,7 +551,7 @@ textarea.cell-input[data-multiline="true"] {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.table-editor tbody tr:hover .row-number {
+.table-editor tbody tr:hover td.row-number {
     background: linear-gradient(90deg,
             var(--vscode-list-hoverBackground) 0%,
             var(--vscode-list-activeSelectionBackground) 100%);
