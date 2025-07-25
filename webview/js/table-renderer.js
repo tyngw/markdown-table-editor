@@ -34,17 +34,22 @@
  */
 
 const TableRenderer = {
+    // Initialization state
+    isInitialized: false,
+    
     /**
      * Initialize the table renderer module
      */
     init: function() {
-        console.log('TableRenderer: Initializing table renderer module...');
-        
-        // Register with the main TableEditor
-        if (window.TableEditor) {
-            window.TableEditor.registerModule('TableRenderer', this);
+        // Prevent duplicate initialization
+        if (this.isInitialized) {
+            console.log('TableRenderer: Already initialized, skipping');
+            return;
         }
         
+        console.log('TableRenderer: Initializing table renderer module...');
+        
+        this.isInitialized = true;
         console.log('TableRenderer: Module initialized');
     },
     
