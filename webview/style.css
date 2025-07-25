@@ -554,10 +554,7 @@ textarea.cell-input[data-multiline="true"] {
             var(--vscode-list-activeSelectionBackground) 100%);
 }
 
-/* Resize cursor */
-.table-editor th {
-    position: relative;
-}
+/* Removed conflicting position rule that was overriding sticky positioning for th elements */
 
 /* 重複定義を削除 - 上の定義を使用 */
 
