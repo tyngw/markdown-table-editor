@@ -98,9 +98,6 @@ body {
 
 /* テーブルヘッダー - 完全に不透過で固定 */
 .table-editor thead {
-    position: sticky;
-    top: 0;
-    z-index: 100;
     background-color: var(--vscode-editor-background);
 }
 
