@@ -434,6 +434,8 @@ textarea.cell-input[data-multiline="true"] {
     /* パディングを追加 */
     /* スティッキー要素を確実に表示 */
     background-clip: padding-box;
+    opacity: 1;
+    /* 完全に不透過な表示を保証 */
 }
 
 .header-corner:hover {
@@ -443,6 +445,8 @@ textarea.cell-input[data-multiline="true"] {
     color: var(--vscode-foreground);
     /* ホバー時もスティッキー要素を確実に表示 */
     background-clip: padding-box;
+    opacity: 1;
+    /* ホバー時も完全に不透過な表示を保証 */
 }
 
 /* Enhanced column headers */
