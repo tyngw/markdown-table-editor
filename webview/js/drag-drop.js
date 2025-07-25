@@ -148,7 +148,15 @@ const DragDropManager = {
         
         // Find drop target
         const target = event.target.closest('th, td, tr');
-        if (!target) return;
+        
+        // If no target element found, check for edge drop zones
+        if (!target) {
+            const edgeDropInfo = this.checkEdgeDropZone(event, state.dragOperation.type);
+            if (edgeDropInfo) {
+                this.highlightEdgeDropZone(edgeDropInfo, state.dragOperation.type);
+            }
+            return;
+        }
         
         const dropIndex = this.getDropIndex(target, state.dragOperation.type);
         if (dropIndex >= 0 && dropIndex !== state.dragOperation.sourceIndex) {
@@ -215,12 +223,21 @@ const DragDropManager = {
         
         // Find drop target
         const target = event.target.closest('th, td, tr');
-        if (!target) {
-            this.clearDragVisuals();
-            return;
-        }
+        let dropIndex = -1;
         
-        const dropIndex = this.getDropIndex(target, dragData.type);
+        if (!target) {
+            // Check for edge drop zones
+            const edgeDropInfo = this.checkEdgeDropZone(event, dragData.type);
+            if (edgeDropInfo) {
+                // For edge drops, the dropIndex should be after the last element
+                dropIndex = edgeDropInfo.insertAfterIndex + 1;
+            } else {
+                this.clearDragVisuals();
+                return;
+            }
+        } else {
+            dropIndex = this.getDropIndex(target, dragData.type);
+        }
         
         if (dropIndex >= 0 && dropIndex !== dragData.index) {
             // Perform the reorder operation
@@ -402,6 +419,141 @@ const DragDropManager = {
         const tableRect = table.getBoundingClientRect();
         
         indicator.style.top = (rect.top - tableRect.top) + 'px';
+        indicator.style.left = (tableRect.left - tableRect.left) + 'px';
+        indicator.style.width = tableRect.width + 'px';
+
+        table.style.position = 'relative';
+        table.appendChild(indicator);
+    },
+
+    /**
+     * Check for edge drop zones (after last column or last row)
+     */
+    checkEdgeDropZone: function(event, dragType) {
+        const table = document.querySelector('table');
+        if (!table) return null;
+        
+        const tableRect = table.getBoundingClientRect();
+        const mouseX = event.clientX;
+        const mouseY = event.clientY;
+        
+        // Add some tolerance for edge detection (10px)
+        const tolerance = 10;
+        
+        if (dragType === 'column') {
+            // Check if mouse is near the right edge of the last column
+            const lastColumn = table.querySelector('th[data-col]:last-of-type');
+            if (lastColumn) {
+                const lastColRect = lastColumn.getBoundingClientRect();
+                const isNearRightEdge = mouseX >= lastColRect.right && 
+                                      mouseX <= lastColRect.right + tolerance &&
+                                      mouseY >= tableRect.top && 
+                                      mouseY <= tableRect.bottom;
+                
+                if (isNearRightEdge) {
+                    const lastColIndex = parseInt(lastColumn.getAttribute('data-col') || '-1');
+                    return {
+                        type: 'column',
+                        insertAfterIndex: lastColIndex,
+                        rect: lastColRect,
+                        tableRect: tableRect
+                    };
+                }
+            }
+        } else if (dragType === 'row') {
+            // Check if mouse is near the bottom edge of the last row
+            const lastRow = table.querySelector('tr[data-row]:last-of-type, tr:has(td[data-row]):last-of-type');
+            if (lastRow) {
+                const lastRowRect = lastRow.getBoundingClientRect();
+                const isNearBottomEdge = mouseY >= lastRowRect.bottom && 
+                                       mouseY <= lastRowRect.bottom + tolerance &&
+                                       mouseX >= tableRect.left && 
+                                       mouseX <= tableRect.right;
+                
+                if (isNearBottomEdge) {
+                    // Find the highest row index in the last row
+                    const rowCells = lastRow.querySelectorAll('td[data-row]');
+                    let lastRowIndex = -1;
+                    rowCells.forEach(cell => {
+                        const rowIndex = parseInt(cell.getAttribute('data-row') || '-1');
+                        if (rowIndex > lastRowIndex) {
+                            lastRowIndex = rowIndex;
+                        }
+                    });
+                    
+                    if (lastRowIndex >= 0) {
+                        return {
+                            type: 'row',
+                            insertAfterIndex: lastRowIndex,
+                            rect: lastRowRect,
+                            tableRect: tableRect
+                        };
+                    }
+                }
+            }
+        }
+        
+        return null;
+    },
+
+    /**
+     * Highlight edge drop zone
+     */
+    highlightEdgeDropZone: function(edgeDropInfo, dragType) {
+        // Clear previous highlights and indicators
+        document.querySelectorAll('.drop-zone').forEach(el => {
+            el.classList.remove('drop-zone');
+        });
+        this.clearDropIndicator();
+        
+        if (dragType === 'column') {
+            this.showColumnEdgeDropIndicator(edgeDropInfo);
+        } else if (dragType === 'row') {
+            this.showRowEdgeDropIndicator(edgeDropInfo);
+        }
+    },
+
+    /**
+     * Show column edge drop indicator (after last column)
+     */
+    showColumnEdgeDropIndicator: function(edgeDropInfo) {
+        const table = document.querySelector('table');
+        if (!table) return;
+
+        // Create drop indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'drop-indicator column';
+        indicator.id = 'drop-indicator';
+
+        // Position the indicator at the right edge of the last column
+        const rect = edgeDropInfo.rect;
+        const tableRect = edgeDropInfo.tableRect;
+        
+        indicator.style.left = (rect.right - tableRect.left) + 'px';
+        indicator.style.top = (tableRect.top - tableRect.top) + 'px';
+        indicator.style.height = tableRect.height + 'px';
+
+        table.style.position = 'relative';
+        table.appendChild(indicator);
+    },
+
+    /**
+     * Show row edge drop indicator (after last row)
+     */
+    showRowEdgeDropIndicator: function(edgeDropInfo) {
+        const table = document.querySelector('table');
+        if (!table) return;
+
+        // Create drop indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'drop-indicator row';
+        indicator.id = 'drop-indicator';
+
+        // Position the indicator at the bottom edge of the last row
+        const rect = edgeDropInfo.rect;
+        const tableRect = edgeDropInfo.tableRect;
+        
+        indicator.style.top = (rect.bottom - tableRect.top) + 'px';
         indicator.style.left = (tableRect.left - tableRect.left) + 'px';
         indicator.style.width = tableRect.width + 'px';
 
