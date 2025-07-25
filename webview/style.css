@@ -98,6 +98,9 @@ body {
 
 /* テーブルヘッダー - 完全に不透過で固定 */
 .table-editor thead {
+    position: sticky;
+    top: 0;
+    z-index: 100;
     background-color: var(--vscode-editor-background);
 }
 
@@ -420,10 +423,10 @@ textarea.cell-input[data-multiline="true"] {
     /* 行番号列に合わせて60pxに変更 */
     min-width: 60px;
     max-width: 60px;
-    position: sticky;
-    left: 0;
-    top: 0;
-    z-index: 110;
+    position: sticky !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 1000 !important;
     cursor: pointer;
     text-align: center;
     vertical-align: middle;
@@ -434,6 +437,9 @@ textarea.cell-input[data-multiline="true"] {
     /* パディングを追加 */
     /* スティッキー要素を確実に表示 */
     background-clip: padding-box;
+    /* Force hardware acceleration and new stacking context */
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .header-corner:hover {
