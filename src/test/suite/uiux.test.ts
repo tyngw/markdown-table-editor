@@ -2,7 +2,6 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-
 suite('UI/UX Enhancement Tests', () => {
     const testWorkspaceFolder = path.join(__dirname, '..', '..', '..', 'test-workspace');
     const testFilePath = path.join(testWorkspaceFolder, 'ui-test.md');
@@ -40,22 +39,19 @@ Some text after the table.
             ext.packageJSON.name === 'markdown-table-editor' || 
             ext.id === 'tyngw.markdown-table-editor'
         );
-        
-        console.log('Extension found by name/id search:', !!ourExtension);
         if (ourExtension) {
             console.log('Extension ID:', ourExtension.id);
             console.log('Extension isActive:', ourExtension.isActive);
-            
             if (!ourExtension.isActive) {
                 console.log('Activating extension...');
                 await ourExtension.activate();
                 console.log('Extension activated:', ourExtension.isActive);
             }
-            
             // Use the found extension or fall back to direct lookup
             const extension = ourExtension || vscode.extensions.getExtension('tyngw.markdown-table-editor');
             assert.ok(extension, 'Extension should be present');
         } else {
+
             // In test environment, extension might not be loaded due to test runner limitations
             // This is a known issue with VS Code extension testing
             console.log('Extension not found in test environment - this is expected in some test configurations');
@@ -63,7 +59,7 @@ Some text after the table.
             assert.ok(true, 'Test passed - extension loading tested via manual verification');
         }
     });
-    });
+
 
     test('Commands should be registered', async () => {
         // Find and ensure extension is activated
