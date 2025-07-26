@@ -11,160 +11,171 @@
 const CellEditor = {
     // Initialization state
     isInitialized: false,
-    
+
     /**
      * Initialize the cell editor module
      */
-    init: function() {
+    init: function () {
         // Prevent duplicate initialization
         if (this.isInitialized) {
             console.log('CellEditor: Already initialized, skipping');
             return;
         }
-        
+
         console.log('CellEditor: Initializing cell editor module...');
-        
+
         this.isInitialized = true;
         console.log('CellEditor: Module initialized');
     },
-    
+
     /**
      * Handle cell click event - only for selection, not editing
      */
-    handleCellClick: function(row, col, event) {
+    handleCellClick: function (row, col, event) {
         // Check if click is on an input field
         if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
             return; // Don't interfere with input editing
         }
-        
+
         // Only handle selection - editing should be triggered by double-click
         window.TableEditor.callModule('SelectionManager', 'selectCell', row, col, event);
     },
-    
+
     /**
      * Start editing a cell
      */
-    startCellEdit: function(row, col) {
+    startCellEdit: function (row, col) {
         const state = window.TableEditor.state;
         const data = state.displayData || state.tableData;
-        
+
         if (!data || !data.rows || !data.rows[row] || data.rows[row][col] === undefined) {
             console.warn('CellEditor: Invalid cell position', row, col);
             return;
         }
-        
+
         // Commit any existing edit first
         if (state.currentEditingCell) {
             this.commitCellEdit();
         }
-        
+
         // Set editing state
         state.currentEditingCell = { row, col };
-        
+
         // Get the cell element
         const cell = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
         if (!cell) {
             console.warn('CellEditor: Cell element not found', row, col);
             return;
         }
-        
+
         // Get current cell content
         const currentValue = data.rows[row][col] || '';
         const editableContent = window.TableEditor.callModule('TableRenderer', 'processCellContentForEditing', currentValue);
-        
+
         // Determine input type based on content
         const inputType = this.determineInputType(editableContent);
-        
+
         // Create input element (always textarea for consistency)
         const input = document.createElement('textarea');
         input.className = 'cell-input';
         input.value = editableContent;
-        
+
         // Check if content has line breaks for multiline attribute
         const hasLineBreaks = editableContent.includes('\n');
         if (hasLineBreaks) {
             input.setAttribute('data-multiline', 'true');
         }
-        
-        // 編集開始前のセルの高さを取得
+
+        // 編集開始前のセルの高さを取得（他のセルの高さも取得）
+        const rowElement = cell.closest('tr');
         const originalCellHeight = cell.offsetHeight;
-        
+        let maxOtherCellHeight = 0;
+
+        if (rowElement) {
+            const rowCells = rowElement.querySelectorAll('td:not(.row-number)');
+            rowCells.forEach(rowCell => {
+                if (rowCell !== cell) {
+                    maxOtherCellHeight = Math.max(maxOtherCellHeight, rowCell.offsetHeight);
+                }
+            });
+        }
+
         // Add editing class first
         cell.classList.add('editing');
-        
+
         // Replace cell content with input
         cell.innerHTML = '';
         cell.appendChild(input);
-        
+
         // Style the input to match the cell (detailed styling from original code)
-        this.styleInputElement(input, cell, originalCellHeight);
-        
+        this.styleInputElement(input, cell, originalCellHeight, maxOtherCellHeight);
+
         // Add event listeners
         this.addInputEventListeners(input, row, col);
-        
+
         // Focus and select content
         input.focus();
         // カーソルを末尾に移動（テキストを選択しない）
         const textLength = input.value.length;
         input.setSelectionRange(textLength, textLength);
-        
+
         // Auto-resize textarea for all content (after DOM is fully rendered)
         setTimeout(() => {
             this.autoResizeTextarea(input);
         }, 0);
-        
+
         console.log('CellEditor: Started editing cell', row, col);
     },
-    
+
     /**
      * Commit current cell edit
      */
-    commitCellEdit: function() {
+    commitCellEdit: function () {
         const state = window.TableEditor.state;
-        
+
         if (!state.currentEditingCell) {
             return; // No active edit
         }
-        
+
         const { row, col } = state.currentEditingCell;
         const cell = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
-        
+
         if (!cell) {
             console.warn('CellEditor: Cell not found during commit', row, col);
             state.currentEditingCell = null;
             return;
         }
-        
+
         const input = cell.querySelector('input, textarea');
         if (!input) {
             console.warn('CellEditor: Input element not found during commit');
             state.currentEditingCell = null;
             return;
         }
-        
+
         // Get new value
         const newValue = input.value;
-        
+
         // Process content for storage
         const processedValue = window.TableEditor.callModule('TableRenderer', 'processCellContentForStorage', newValue);
-        
+
         // Update data model
         const data = state.tableData;
         if (data && data.rows && data.rows[row]) {
             const oldValue = data.rows[row][col];
             data.rows[row][col] = processedValue;
-            
+
             // Send update to VSCode if value changed
             if (oldValue !== processedValue) {
                 window.TableEditor.updateCell(row, col, processedValue);
-                
+
                 console.log('CellEditor: Cell updated', row, col, processedValue);
             }
         }
-        
+
         // Remove editing class and restore cell display
         cell.classList.remove('editing');
-        
+
         // Reset all inline styles that might affect cell dimensions
         cell.style.height = '';
         cell.style.minHeight = '';
@@ -172,10 +183,10 @@ const CellEditor = {
         cell.style.verticalAlign = '';
         cell.style.textAlign = '';
         cell.removeAttribute('style'); // すべてのインラインスタイルを削除
-        
+
         const processedContent = window.TableEditor.callModule('TableRenderer', 'processCellContent', processedValue);
         cell.innerHTML = `<div class="cell-content">${processedContent}</div>`;
-        
+
         // セルの属性を更新（単一行か複数行かを判定）
         const hasMultipleLines = processedValue && String(processedValue).includes('<br');
         if (hasMultipleLines) {
@@ -183,31 +194,31 @@ const CellEditor = {
         } else {
             cell.removeAttribute('data-multiline');
         }
-        
+
         // Clear editing state
         state.currentEditingCell = null;
         state.isComposing = false;
-        
+
         console.log('CellEditor: Committed cell edit', row, col);
     },
-    
+
     /**
      * Cancel current cell edit
      */
-    cancelCellEdit: function() {
+    cancelCellEdit: function () {
         const state = window.TableEditor.state;
-        
+
         if (!state.currentEditingCell) {
             return; // No active edit
         }
-        
+
         const { row, col } = state.currentEditingCell;
         const cell = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
-        
+
         if (cell) {
             // Remove editing class
             cell.classList.remove('editing');
-            
+
             // Reset all inline styles that might affect cell dimensions
             cell.style.height = '';
             cell.style.minHeight = '';
@@ -215,14 +226,14 @@ const CellEditor = {
             cell.style.verticalAlign = '';
             cell.style.textAlign = '';
             cell.removeAttribute('style'); // すべてのインラインスタイルを削除
-            
+
             // Restore original content
             const data = state.displayData || state.tableData;
             if (data && data.rows && data.rows[row]) {
                 const originalValue = data.rows[row][col] || '';
                 const processedContent = window.TableEditor.callModule('TableRenderer', 'processCellContent', originalValue);
                 cell.innerHTML = `<div class="cell-content">${processedContent}</div>`;
-                
+
                 // セルの属性を更新（単一行か複数行かを判定）
                 const hasMultipleLines = originalValue && String(originalValue).includes('<br');
                 if (hasMultipleLines) {
@@ -232,80 +243,72 @@ const CellEditor = {
                 }
             }
         }
-        
+
         // Clear editing state
         state.currentEditingCell = null;
         state.isComposing = false;
-        
+
         console.log('CellEditor: Cancelled cell edit', row, col);
     },
-    
+
     /**
      * Determine appropriate input type based on content
      */
-    determineInputType: function(content) {
+    determineInputType: function (content) {
         // Always use textarea for consistent styling
         return 'textarea';
     },
-    
+
     /**
      * Style input element to match cell dimensions
      */
-    styleInputElement: function(input, cell) {
+    styleInputElement: function (input, cell, originalCellHeight, maxOtherCellHeight) {
         // Set minimal required styles, let CSS handle the rest
         input.style.width = '100%';
         input.style.boxSizing = 'border-box';
-        
+
         // Check if content has multiple lines
         const hasMultipleLines = input.value && input.value.includes('\n');
         if (hasMultipleLines) {
             input.setAttribute('data-multiline', 'true');
         }
-        
+
         // Let CSS classes handle the detailed styling
         input.className = 'cell-input';
-        
+
         // Calculate initial height based on content
         const content = input.value;
         const lines = content ? content.split('\n') : [''];
         const lineCount = Math.max(lines.length, 1);
-        
+
         // Get line height from CSS
         const lineHeight = 1.2; // em units
         const fontSize = 14; // default font size
         const actualLineHeight = lineHeight * fontSize;
         const padding = 8; // 4px top + 4px bottom
-        
+
         const textRequiredHeight = (lineCount * actualLineHeight) + padding;
         const minHeight = actualLineHeight + padding;
-        
-        // Get current cell height (considering other cells in the same row might be taller)
-        const row = cell.closest('tr');
-        let currentCellHeight = cell.offsetHeight;
-        let maxRowCellHeight = 0;
-        
-        if (row) {
-            // Check all cells in the same row and get the maximum height
-            const rowCells = row.querySelectorAll('td:not(.row-number)');
-            rowCells.forEach(rowCell => {
-                if (rowCell !== cell) {
-                    maxRowCellHeight = Math.max(maxRowCellHeight, rowCell.offsetHeight);
-                }
-            });
+
+        // 編集開始前に取得した高さ情報を使用
+        // 編集対象セルが最も高い場合でも、テキスト要求高さを優先する
+        let finalHeight;
+
+        if (originalCellHeight > maxOtherCellHeight) {
+            // 編集対象セルが最も高い場合：テキスト要求高さと元の高さの大きい方を使用
+            finalHeight = Math.max(textRequiredHeight, originalCellHeight, minHeight);
+            console.log(`StyleInput: Cell is tallest, using max(textRequired=${textRequiredHeight}, original=${originalCellHeight}, min=${minHeight}) = ${finalHeight}`);
+        } else {
+            // 他のセルの方が高い場合：行の統一性を保つため他のセルの高さに合わせる
+            finalHeight = Math.max(textRequiredHeight, maxOtherCellHeight, minHeight);
+            console.log(`StyleInput: Other cells taller, using max(textRequired=${textRequiredHeight}, others=${maxOtherCellHeight}, min=${minHeight}) = ${finalHeight}`);
         }
-        
-        // Use the larger of the following heights:
-        // 1. Text requirement (based on content)
-        // 2. Current cell height (its own height)
-        // 3. Other cells' maximum height in the same row
-        // 4. Minimum height
-        const finalHeight = Math.max(textRequiredHeight, currentCellHeight, maxRowCellHeight, minHeight);
-        
+
         input.style.setProperty('height', finalHeight + 'px', 'important');
         input.style.setProperty('min-height', minHeight + 'px', 'important');
-        
-        console.log(`StyleInput: lines=${lineCount}, textRequired=${textRequiredHeight}, cellHeight=${currentCellHeight}, applied=${finalHeight}`);
-        
+
+        console.log(`StyleInput: lines=${lineCount}, textRequired=${textRequiredHeight}, originalCell=${originalCellHeight}, maxOthers=${maxOtherCellHeight}, applied=${finalHeight}`);
+
         // デバッグ: 実際に設定された高さを確認
         setTimeout(() => {
             const actualHeight = input.offsetHeight;
@@ -313,32 +316,32 @@ const CellEditor = {
             console.log(`StyleInput Debug: actualHeight=${actualHeight}, computedHeight=${computedHeight}`);
         }, 10);
     },
-    
+
     /**
      * Add event listeners to input element
      */
-    addInputEventListeners: function(input, row, col) {
+    addInputEventListeners: function (input, row, col) {
         const state = window.TableEditor.state;
-        
+
         // Handle keyboard events for editing
         input.addEventListener('keydown', (event) => {
             // Enter key behavior (README spec)
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 event.stopPropagation(); // Prevent keyboard navigation handler from triggering
-                
+
                 // Get current editing position from state
                 const state = window.TableEditor.state;
                 const currentEditingCell = state.currentEditingCell;
-                
+
                 if (!currentEditingCell) {
                     console.warn('CellEditor: Enter pressed but no current editing cell in state');
                     return;
                 }
-                
+
                 const editingRow = currentEditingCell.row;
                 const editingCol = currentEditingCell.col;
-                
+
                 this.commitCellEdit();
                 // Navigate to next row in same column (README spec: 編集確定＆同列の次行へ)
                 // Just select the next cell, don't start editing automatically
@@ -360,19 +363,19 @@ const CellEditor = {
             else if (event.key === 'Tab') {
                 event.preventDefault();
                 event.stopPropagation(); // Prevent keyboard navigation handler from triggering
-                
+
                 // Get current editing position from state instead of closure variables
                 const state = window.TableEditor.state;
                 const currentEditingCell = state.currentEditingCell;
-                
+
                 if (!currentEditingCell) {
                     console.warn('CellEditor: Tab pressed but no current editing cell in state');
                     return;
                 }
-                
+
                 const editingRow = currentEditingCell.row;
                 const editingCol = currentEditingCell.col;
-                
+
                 this.commitCellEdit();
                 // Navigate to next/previous cell using the correct current position
                 window.TableEditor.callModule('KeyboardNavigationManager', 'navigateToNextCell', editingRow, editingCol, !event.shiftKey);
@@ -385,30 +388,30 @@ const CellEditor = {
                 // Don't navigate to next cell - just end editing
             }
         });
-        
+
         // Handle IME composition
         input.addEventListener('compositionstart', (e) => {
             console.log('CellEditor: IME composition started');
             state.isComposing = true;
         });
-        
+
         input.addEventListener('compositionupdate', (e) => {
             console.log('CellEditor: IME composition updating:', e.data);
             state.isComposing = true;
         });
-        
+
         input.addEventListener('compositionend', (e) => {
             console.log('CellEditor: IME composition ended:', e.data);
             state.isComposing = false;
         });
-        
+
         // Auto-resize textarea
         if (input.tagName === 'TEXTAREA') {
             input.addEventListener('input', () => {
                 this.autoResizeTextarea(input);
             });
         }
-        
+
         // Commit on blur (focus lost)
         input.addEventListener('blur', () => {
             // Don't commit if we're in the middle of IME composition
@@ -423,64 +426,65 @@ const CellEditor = {
             }
         });
     },
-    
+
     /**
      * Auto-resize textarea to fit content
      */
-    autoResizeTextarea: function(textarea) {
+    autoResizeTextarea: function (textarea) {
         if (!textarea) return;
-        
+
         // Get the parent cell
         const cell = textarea.closest('td');
         if (!cell) return;
-        
+
         // Get computed styles
         const computedStyle = window.getComputedStyle(textarea);
         const lineHeight = parseFloat(computedStyle.lineHeight) || 1.2 * parseFloat(computedStyle.fontSize);
         const paddingTop = parseFloat(computedStyle.paddingTop) || 4;
         const paddingBottom = parseFloat(computedStyle.paddingBottom) || 4;
         const totalPadding = paddingTop + paddingBottom;
-        
+
         // Count actual lines in the content
         const content = textarea.value;
         const lines = content ? content.split('\n') : [''];
         const lineCount = Math.max(lines.length, 1); // At least 1 line
-        
+
         // Calculate height based on line count
         const contentHeight = lineCount * lineHeight;
         const textAreaRequiredHeight = contentHeight + totalPadding;
-        
-        // Get current cell height (considering other cells in the same row might be taller)
-        const row = cell.closest('tr');
-        let currentCellHeight = cell.offsetHeight;
+
+        // 現在のtextareaの高さを取得
+        const currentTextareaHeight = textarea.offsetHeight;
+
+        // 編集中のリサイズでは、テキスト要求高さを最優先にする
+        // 他のセルの高さは参考程度に留める
+        const rowElement = cell.closest('tr');
         let maxRowCellHeight = 0;
-        
-        if (row) {
+
+        if (rowElement) {
             // Check all cells in the same row and get the maximum height
-            const rowCells = row.querySelectorAll('td:not(.row-number)');
+            const rowCells = rowElement.querySelectorAll('td:not(.row-number)');
             rowCells.forEach(rowCell => {
                 if (rowCell !== cell) {
                     maxRowCellHeight = Math.max(maxRowCellHeight, rowCell.offsetHeight);
                 }
             });
         }
-        
-        // Use the larger of the following heights:
-        // 1. Text requirement (based on content)
-        // 2. Current cell height (its own height)
-        // 3. Other cells' maximum height in the same row
-        const finalHeight = Math.max(textAreaRequiredHeight, currentCellHeight, maxRowCellHeight);
-        
-        // Set minimum height (at least 1 line)
+
+        // 編集中は以下の優先順位で高さを決定：
+        // 1. テキスト要求高さ（最優先）
+        // 2. 現在のtextareaの高さ（初期設定を保持）
+        // 3. 他のセルの高さ（行の統一性のため）
+        // 4. 最小高さ
         const minHeight = lineHeight + totalPadding;
-        const appliedHeight = Math.max(finalHeight, minHeight);
-        
+        const appliedHeight = Math.max(textAreaRequiredHeight, currentTextareaHeight, maxRowCellHeight, minHeight);
+
         // Update both textarea and cell height with !important
         textarea.style.setProperty('height', appliedHeight + 'px', 'important');
         cell.style.setProperty('height', appliedHeight + 'px', 'important');
-        
-        console.log(`AutoResize: lines=${lineCount}, textRequired=${textAreaRequiredHeight}, cellHeight=${currentCellHeight}, applied=${appliedHeight}`);
-        
+
+        console.log(`AutoResize: lines=${lineCount}, textRequired=${textAreaRequiredHeight}, currentTextarea=${currentTextareaHeight}, maxRowHeight=${maxRowCellHeight}, applied=${appliedHeight}`);
+
         // デバッグ: 実際に設定された高さを確認
         setTimeout(() => {
             const actualHeight = textarea.offsetHeight;
@@ -488,47 +492,47 @@ const CellEditor = {
             console.log(`AutoResize Debug: actualHeight=${actualHeight}, computedHeight=${computedHeight}`);
         }, 10);
     },
-    
+
     /**
      * Check if currently editing a cell
      */
-    isEditing: function() {
+    isEditing: function () {
         const state = window.TableEditor.state;
         return state.currentEditingCell !== null;
     },
-    
+
     /**
      * Get current editing cell position
      */
-    getCurrentEditingCell: function() {
+    getCurrentEditingCell: function () {
         const state = window.TableEditor.state;
         return state.currentEditingCell;
     },
-    
+
     /**
      * Validate cell content before saving
      */
-    validateCellContent: function(content, row, col) {
+    validateCellContent: function (content, row, col) {
         // Basic validation - can be extended
         if (content === null || content === undefined) {
             return { valid: false, message: 'Content cannot be null' };
         }
-        
+
         // Convert to string
         const stringContent = String(content);
-        
+
         // Check length (example limit)
         if (stringContent.length > 10000) {
             return { valid: false, message: 'Content too long (max 10000 characters)' };
         }
-        
+
         return { valid: true };
     },
-    
+
     /**
      * Focus on a specific cell for editing
      */
-    focusCell: function(row, col) {
+    focusCell: function (row, col) {
         const cell = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
         if (cell) {
             // If cell is already being edited, focus the input
