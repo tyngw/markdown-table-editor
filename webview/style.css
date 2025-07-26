@@ -402,12 +402,7 @@ textarea.cell-input[data-multiline="true"] {
     margin-bottom: 2px;
 }
 
-.column-title {
-    cursor: text;
-    flex: 1;
-    min-width: 0;
-    word-wrap: break-word;
-}
+
 
 .column-title:hover {
     background-color: var(--vscode-list-hoverBackground);
@@ -558,13 +553,17 @@ textarea.cell-input[data-multiline="true"] {
 }
 
 .column-title {
+    cursor: text;
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
     font-size: 13px;
     font-weight: 600;
     color: var(--vscode-foreground);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: calc(100% - 40px); /* Leave space for sort indicator */
+    max-width: 100%;
     display: inline-block;
 }
 
