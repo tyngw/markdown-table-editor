@@ -37,6 +37,12 @@ const CellEditor = {
             return; // Don't interfere with input editing
         }
 
+        // Handle Shift+click for range selection
+        if (event.shiftKey) {
+            window.TableEditor.callModule('SelectionManager', 'selectCell', row, col, event);
+            return;
+        }
+
         // Only handle selection - editing should be triggered by double-click
         window.TableEditor.callModule('SelectionManager', 'selectCell', row, col, event);
     },
