@@ -379,7 +379,7 @@ const ContextMenuManager = {
         data.rows[rowIndex][colIndex] = '';
 
         // Send update to VSCode
-        window.TableEditor.updateCell(rowIndex, colIndex, '');
+        window.TableEditor.callModule('TableManager', 'updateCell', rowIndex, colIndex, '');
 
         // Update the cell display
         const cell = document.querySelector(`td[data-row="${rowIndex}"][data-col="${colIndex}"]`);
@@ -395,42 +395,42 @@ const ContextMenuManager = {
      * Insert row above
      */
     insertRowAbove: function (rowIndex) {
-        window.TableEditor.addRow(rowIndex);
+        window.TableEditor.callModule('TableManager', 'addRow', rowIndex);
     },
 
     /**
      * Insert row below
      */
     insertRowBelow: function (rowIndex) {
-        window.TableEditor.addRow(rowIndex + 1);
+        window.TableEditor.callModule('TableManager', 'addRow', rowIndex + 1);
     },
 
     /**
      * Delete row
      */
     deleteRow: function (rowIndex) {
-        window.TableEditor.deleteRow(rowIndex);
+        window.TableEditor.callModule('TableManager', 'deleteRow', rowIndex);
     },
 
     /**
      * Insert column to the left
      */
     insertColumnLeft: function (colIndex) {
-        window.TableEditor.addColumn(colIndex, `Column ${colIndex + 1}`);
+        window.TableEditor.callModule('TableManager', 'addColumn', colIndex, `Column ${colIndex + 1}`);
     },
 
     /**
      * Insert column to the right
      */
     insertColumnRight: function (colIndex) {
-        window.TableEditor.addColumn(colIndex + 1, `Column ${colIndex + 2}`);
+        window.TableEditor.callModule('TableManager', 'addColumn', colIndex + 1, `Column ${colIndex + 2}`);
     },
 
     /**
      * Delete column
      */
     deleteColumn: function (colIndex) {
-        window.TableEditor.deleteColumn(colIndex);
+        window.TableEditor.callModule('TableManager', 'deleteColumn', colIndex);
     },
 
     /**
@@ -575,9 +575,9 @@ const ContextMenuManager = {
 
         console.log('ContextMenuManager: Adding row above at index:', rowIndex);
         if (rowIndex >= 0) {
-            window.TableEditor.addRow(rowIndex);
+            window.TableEditor.callModule('TableManager', 'addRow', rowIndex);
         } else {
-            window.TableEditor.addRow(0); // Add at beginning if no specific row
+            window.TableEditor.callModule('TableManager', 'addRow', 0); // Add at beginning if no specific row
         }
     },
 
@@ -592,11 +592,11 @@ const ContextMenuManager = {
 
         console.log('ContextMenuManager: Adding row below at index:', rowIndex);
         if (rowIndex >= 0) {
-            window.TableEditor.addRow(rowIndex + 1);
+            window.TableEditor.callModule('TableManager', 'addRow', rowIndex + 1);
         } else {
             const data = state.displayData || state.tableData;
             const totalRows = data?.rows?.length || 0;
-            window.TableEditor.addRow(totalRows); // Add at end
+            window.TableEditor.callModule('TableManager', 'addRow', totalRows); // Add at end
         }
     },
 
@@ -624,7 +624,7 @@ const ContextMenuManager = {
 
         if (rowIndex >= 0) {
             console.log('ContextMenuManager: Calling TableEditor.deleteRow with index:', rowIndex);
-            window.TableEditor.deleteRow(rowIndex);
+            window.TableEditor.callModule('TableManager', 'deleteRow', rowIndex);
         } else {
             console.error('ContextMenuManager: Invalid row index for deletion:', rowIndex);
         }
@@ -638,7 +638,7 @@ const ContextMenuManager = {
         const index = this.contextMenuState.currentColumn;
         this.hideContextMenus();
 
-        window.TableEditor.addColumn(index, `Column ${index + 1}`);
+        window.TableEditor.callModule('TableManager', 'addColumn', index, `Column ${index + 1}`);
     },
 
     /**
@@ -649,7 +649,7 @@ const ContextMenuManager = {
         const index = this.contextMenuState.currentColumn + 1;
         this.hideContextMenus();
 
-        window.TableEditor.addColumn(index, `Column ${index + 1}`);
+        window.TableEditor.callModule('TableManager', 'addColumn', index, `Column ${index + 1}`);
     },
 
     /**
@@ -671,7 +671,7 @@ const ContextMenuManager = {
             return;
         }
 
-        window.TableEditor.deleteColumn(index);
+        window.TableEditor.callModule('TableManager', 'deleteColumn', index);
     },
 
     /**
