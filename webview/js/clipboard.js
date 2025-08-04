@@ -218,7 +218,7 @@ const ClipboardManager = {
                         updatedCells++;
                         
                         // Send update to VSCode
-                        window.TableEditor.updateCell(row, col, processedValue);
+                        window.TableEditor.callModule('TableManager', 'updateCell', row, col, processedValue);
                     }
                 });
                 
@@ -271,7 +271,7 @@ const ClipboardManager = {
                                 updatedCells++;
                                 
                                 // Send update to VSCode
-                                window.TableEditor.updateCell(targetRow, targetCol, processedValue);
+                                window.TableEditor.callModule('TableManager', 'updateCell', targetRow, targetCol, processedValue);
                             }
                         });
                     });
@@ -321,7 +321,7 @@ const ClipboardManager = {
                         updatedCells++;
                         
                         // Send update to VSCode
-                        window.TableEditor.updateCell(targetRow, targetCol, processedValue);
+                        window.TableEditor.callModule('TableManager', 'updateCell', targetRow, targetCol, processedValue);
                     }
                 });
             });
@@ -341,7 +341,7 @@ const ClipboardManager = {
         const scrollLeft = tableContainer ? tableContainer.scrollLeft : 0;
         
         // Re-render table content only
-        window.TableEditor.renderTableInContainer(data);
+        window.TableEditor.callModule('UIRenderer', 'renderTableInContainer', data);
         
         // Restore scroll position
         const newTableContainer = document.querySelector('.table-container');
