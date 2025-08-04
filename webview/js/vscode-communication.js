@@ -1,0 +1,123 @@
+/**
+ * VSCode Communication Module
+ * 
+ * Handles all communication between the webview and VSCode extension
+ */
+
+const VSCodeCommunication = {
+    /**
+     * Initialize VSCode communication
+     */
+    init: function() {
+        console.log('VSCodeCommunication: Initializing...');
+        
+        // Set up message listener for VSCode communication
+        this.messageHandler = (event) => {
+            this.handleVSCodeMessage(event);
+        };
+        window.addEventListener('message', this.messageHandler);
+        
+        console.log('VSCodeCommunication: Initialized');
+    },
+
+    /**
+     * Handle messages from VSCode extension
+     */
+    handleVSCodeMessage: function (event) {
+        const message = event.data;
+        console.log('VSCodeCommunication: Received message from VSCode:', message.command, message);
+
+        switch (message.command) {
+            case 'updateTableData':
+                console.log('VSCodeCommunication: Processing updateTableData message with data:', message.data);
+                TableEditor.callModule('TableManager', 'handleUpdateTableData', message.data, message.fileInfo);
+                break;
+            case 'cellUpdateError':
+                console.log('VSCodeCommunication: Cell update error received:', message.data);
+                TableEditor.callModule('TableManager', 'handleCellUpdateError', message.data);
+                break;
+            case 'setActiveTable':
+                TableEditor.callModule('TableManager', 'handleSetActiveTable', message.data);
+                break;
+            case 'error':
+                TableEditor.showError(message.message);
+                break;
+            case 'success':
+                TableEditor.showSuccess(message.message);
+                break;
+            case 'cellUpdateSuccess':
+            case 'headerUpdateSuccess':
+            case 'tableUpdateSuccess':
+                // Show auto-saved status for explicit save success notifications
+                TableEditor.showAutoSavedStatus();
+                break;
+            case 'status':
+                TableEditor.showStatus(message.status, message.data);
+                break;
+            case 'validationError':
+                TableEditor.showValidationError(message.field, message.message);
+                break;
+            case 'ping':
+                // Respond to health check
+                this.sendMessage({
+                    command: 'pong',
+                    timestamp: message.timestamp,
+                    responseTime: Date.now() - message.timestamp
+                });
+                break;
+            default:
+                console.warn('VSCodeCommunication: Unknown message command:', message.command);
+        }
+    },
+
+    /**
+     * Request table data from VSCode
+     */
+    requestTableData: function () {
+        console.log('VSCodeCommunication: Requesting table data from VSCode...');
+        if (TableEditor.vscode) {
+            TableEditor.vscode.postMessage({ command: 'requestTableData' });
+            console.log('VSCodeCommunication: Request sent successfully');
+        } else {
+            console.error('VSCodeCommunication: VSCode API not available, cannot request data');
+            TableEditor.showError('Cannot communicate with VSCode extension');
+        }
+    },
+
+    /**
+     * Send message to VSCode with error handling
+     */
+    sendMessage: function (message) {
+        try {
+            if (TableEditor.vscode) {
+                TableEditor.vscode.postMessage(message);
+            } else {
+                console.error('VSCodeCommunication: VSCode API not available');
+            }
+        } catch (error) {
+            console.error('VSCodeCommunication: Failed to send message to VSCode:', error);
+            TableEditor.showError('Communication error with VSCode');
+        }
+    },
+
+    /**
+     * Cleanup communication resources
+     */
+    cleanup: function() {
+        if (this.messageHandler) {
+            window.removeEventListener('message', this.messageHandler);
+            this.messageHandler = null;
+        }
+        console.log('VSCodeCommunication: Cleaned up');
+    }
+};
+
+// Register the module
+if (window.TableEditor) {
+    window.TableEditor.registerModule('VSCodeCommunication', VSCodeCommunication);
+} else {
+    // If TableEditor is not available yet, store the module for later registration
+    window.VSCodeCommunication = VSCodeCommunication;
+}
+
+console.log('VSCodeCommunication: Module loaded');

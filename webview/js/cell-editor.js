@@ -216,7 +216,7 @@ const CellEditor = {
 
             // Send update to VSCode if value changed (for file saving only)
             if (oldValue !== processedValue) {
-                window.TableEditor.updateCell(row, col, processedValue);
+                window.TableEditor.callModule('TableManager', 'updateCell', row, col, processedValue);
                 console.log('CellEditor: Cell updated and sent to VSCode', row, col, processedValue);
             } else {
                 console.log('CellEditor: Cell value unchanged, no update sent', row, col);
@@ -685,7 +685,7 @@ const CellEditor = {
 
             // Send update to VSCode if value changed (for file saving)
             if (oldValue !== newValue) {
-                window.TableEditor.updateHeader(col, newValue);
+                window.TableEditor.callModule('TableManager', 'updateHeader', col, newValue);
                 console.log('CellEditor: Header updated and sent to VSCode', col, newValue);
             } else {
                 console.log('CellEditor: Header value unchanged, no update sent', col);

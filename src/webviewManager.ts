@@ -69,7 +69,16 @@ export class WebviewManager {
 
         // Generate script URIs for modular JavaScript files
         const scriptFiles = [
+            // Core system must be loaded first
             'js/core.js',
+
+            // Core modules (order matters for dependencies)
+            'js/error-handler.js',
+            'js/vscode-communication.js',
+            'js/ui-renderer.js',
+            'js/table-manager.js',
+
+            // Feature modules
             'js/table-renderer.js',
             'js/selection.js',
             'js/cell-editor.js',
@@ -919,20 +928,20 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
      */
     public dispose(): void {
         console.log('WebviewManager: Starting disposal...');
-        
+
         try {
             // Stop health monitoring first
             this.stopHealthMonitoring();
-            
+
             // Close all panels (this will trigger their onDidDispose handlers)
             this.closeAllPanels();
-            
+
             // Clear connection health map
             this.connectionHealthMap.clear();
-            
+
             // Clear panels map
             this.panels.clear();
-            
+
             console.log('WebviewManager: Disposal completed successfully');
         } catch (error) {
             console.error('WebviewManager: Error during disposal:', error);

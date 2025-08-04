@@ -498,7 +498,7 @@ const KeyboardNavigationManager = {
                     hasChanges = true;
 
                     // Send update to VSCode
-                    window.TableEditor.updateCell(row, col, '');
+                    window.TableEditor.callModule('TableManager', 'updateCell', row, col, '');
                 }
             }
         });
