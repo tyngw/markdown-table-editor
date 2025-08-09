@@ -2,9 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { TableData } from './tableDataManager';
 import * as fs from 'fs';
+import { buildThemeVariablesCss } from './themeUtils';
 
 export interface WebviewMessage {
-    command: 'requestTableData' | 'updateCell' | 'updateHeader' | 'addRow' | 'deleteRow' | 'addColumn' | 'deleteColumn' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable';
+    command: 'requestTableData' | 'updateCell' | 'updateHeader' | 'addRow' | 'deleteRow' | 'addColumn' | 'deleteColumn' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables';
     data?: any;
     timestamp?: number;
     responseTime?: number;
@@ -132,6 +133,8 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
                 console.log('Panel became active, refreshing data for:', panelId);
                 // Request fresh data when panel becomes active
                 this.refreshPanelData(panel, uri);
+                // Ensure theme is applied when panel becomes active
+                this.applyThemeToPanel(panel);
             }
         }, null, this.context.subscriptions);
 
@@ -148,11 +151,15 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
         setTimeout(() => {
             console.log('Sending initial table data to webview...');
             this.updateTableData(panel, tableData, uri);
+            // Apply theme shortly after data is sent to avoid race with script init
+            this.applyThemeToPanel(panel);
 
             // Send a second update after another delay to ensure it's received
             setTimeout(() => {
                 console.log('Sending table data to webview...');
                 this.updateTableData(panel, tableData, uri);
+                // Re-apply theme again to cover late-initialized listeners
+                this.applyThemeToPanel(panel);
             }, 1000);
         }, 500);
 
@@ -317,6 +324,10 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
                     // This is just a notification, no action needed
                     break;
 
+                case 'requestThemeVariables':
+                    await this.handleRequestThemeVariables(panel);
+                    break;
+
                 default:
                     console.warn('Unknown message command:', message.command);
                     this.sendError(panel, `Unknown command: ${message.command}`);
@@ -357,7 +368,7 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
     public validateMessageCommand(message: any): boolean {
         const validCommands = [
             'requestTableData', 'updateCell', 'updateHeader', 'addRow', 'deleteRow',
-            'addColumn', 'deleteColumn', 'sort', 'moveRow', 'moveColumn', 'exportCSV', 'pong', 'switchTable'
+            'addColumn', 'deleteColumn', 'sort', 'moveRow', 'moveColumn', 'exportCSV', 'pong', 'switchTable', 'requestThemeVariables'
         ];
 
         return validCommands.includes(message.command);
@@ -649,6 +660,32 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
             filename: data.filename,
             encoding: data.encoding || 'utf8'
         });
+    }
+
+    /**
+     * Handle theme variables request from webview
+     */
+    private async handleRequestThemeVariables(panel: vscode.WebviewPanel): Promise<void> {
+        try {
+            const selectedTheme = vscode.workspace.getConfiguration('markdownTableEditor').get<string>('theme', 'inherit');
+            const themeVars = await buildThemeVariablesCss(selectedTheme);
+            panel.webview.postMessage({ command: 'applyThemeVariables', data: { cssText: themeVars.cssText } });
+        } catch (error) {
+            console.warn('Failed to send theme variables to panel:', error);
+        }
+    }
+
+    /**
+     * Apply current configured theme CSS to a specific panel
+     */
+    private async applyThemeToPanel(panel: vscode.WebviewPanel): Promise<void> {
+        try {
+            const selectedTheme = vscode.workspace.getConfiguration('markdownTableEditor').get<string>('theme', 'inherit');
+            const themeVars = await buildThemeVariablesCss(selectedTheme);
+            panel.webview.postMessage({ command: 'applyThemeVariables', data: { cssText: themeVars.cssText } });
+        } catch (error) {
+            console.warn('WebviewManager: Failed to apply theme to panel:', error);
+        }
     }
 
     /**

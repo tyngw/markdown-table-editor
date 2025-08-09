@@ -81,7 +81,10 @@ async function buildCssFromThemeColors(themeUri: vscode.Uri): Promise<string> {
       const varName = `--vscode-${key.replace(/\./g, '-')}`;
       entries.push(`${varName}:${val}`);
     }
-    return entries.length ? `:root{${entries.join(';')}}` : '';
+    // 拡張で使用する重要トークンのフォールバック上書きを追加
+    const ensure = buildEnsureOverrides(colors);
+    const base = entries.length ? `:root{${entries.join(';')}}` : '';
+    return base + (ensure ? `:root{${ensure}}` : '');
   } catch {
     return '';
   }
@@ -118,4 +121,43 @@ export function createThemeStyleTag(theme: ThemeVariables): string {
   if (!theme.cssText) return '';
   const nonce = Date.now().toString();
   return `<style id="mte-theme-override" nonce="${nonce}">${theme.cssText}</style>`;
+}
+
+/**
+ * 拡張で参照する主要トークンを必ず定義するためのフォールバックを構築
+ * - 選択テーマの colors に無い場合、近い意味の色や editor 背景等から埋める
+ */
+function buildEnsureOverrides(colors: Record<string, string>): string {
+  const val = (k: string, alt?: string, alt2?: string) =>
+    colors[k] || (alt ? colors[alt] : '') || (alt2 ? colors[alt2] : '') || '';
+
+  // ベース
+  const editorBg = colors['editor.background'] || '#ffffff';
+  const foreground = colors['foreground'] || '#333333';
+  const focusBorder = colors['focusBorder'] || '#007acc';
+  const listHover = colors['list.hoverBackground'] || '#f2f2f2';
+  const groupTabsBg = val('editorGroupHeader.tabsBackground', 'panelSectionHeader.background') || editorBg;
+  const panelHeaderBg = colors['panelSectionHeader.background'] || groupTabsBg;
+
+  // タブ関連（Table Editorのタブに使用）
+  const ensure: Record<string, string> = {
+    'tab.activeBackground': val('tab.activeBackground') || groupTabsBg,
+    'tab.activeForeground': val('tab.activeForeground') || foreground,
+    'tab.inactiveBackground': val('tab.inactiveBackground') || panelHeaderBg,
+    'tab.inactiveForeground': val('tab.inactiveForeground') || foreground,
+    'tab.hoverBackground': val('tab.hoverBackground') || listHover,
+    'tab.activeBorderTop': val('tab.activeBorder', 'tab.activeBorderTop') || focusBorder,
+    'editorGroupHeader.tabsBackground': groupTabsBg,
+    'panelSectionHeader.background': panelHeaderBg,
+    'editorWidget.background': val('editorWidget.background') || editorBg
+  };
+
+  // 文字列に直す（--vscode-<token>）
+  const parts: string[] = [];
+  for (const k of Object.keys(ensure)) {
+    const v = ensure[k];
+    if (!v) continue;
+    parts.push(`--vscode-${k.replace(/\./g, '-')}:${v}`);
+  }
+  return parts.join(';');
 } 
