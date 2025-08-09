@@ -63,6 +63,9 @@ export class WebviewManager {
             }
         );
 
+        // Set the icon for the webview panel tab
+        panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'icon.png');
+
         console.log('Webview panel created, setting HTML content...');
 
         // Generate vscode-resource URIs for CSS and JavaScript files
