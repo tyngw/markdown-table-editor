@@ -18,6 +18,21 @@ const VSCodeCommunication = {
         window.addEventListener('message', this.messageHandler);
         
         console.log('VSCodeCommunication: Initialized');
+
+        // 起動直後にテーマ変数を要求して適用
+        try {
+            this.sendMessage({ command: 'requestThemeVariables' });
+        } catch (e) {
+            console.warn('VSCodeCommunication: Failed to request theme variables on init', e);
+        }
+
+        // 追加リトライ: 初期化後少し待って再要求（初回競合のケア）
+        setTimeout(() => {
+            try { this.sendMessage({ command: 'requestThemeVariables' }); } catch {}
+        }, 300);
+        setTimeout(() => {
+            try { this.sendMessage({ command: 'requestThemeVariables' }); } catch {}
+        }, 1000);
     },
 
     /**

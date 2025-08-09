@@ -622,6 +622,125 @@ const TableEditor = {
 
             return result;
         }
+    },
+
+    /**
+     * Color utility functions for handling VSCode theme colors
+     */
+    colorUtils: {
+        /**
+         * Convert transparent color to opaque color
+         * @param {string} color - CSS color value (rgba, rgb, hex, etc.)
+         * @param {string} fallbackColor - Fallback color if conversion fails
+         * @returns {string} Opaque color
+         */
+        convertToOpaque: function(color, fallbackColor = '#ffffff') {
+            if (!color) return fallbackColor;
+            
+            // If it's already opaque (no alpha channel), return as is
+            if (!color.includes('rgba')) {
+                return color;
+            }
+            
+            try {
+                // Parse rgba color
+                const rgbaMatch = color.match(/rgba?\(([^)]+)\)/);
+                if (!rgbaMatch) return fallbackColor;
+                
+                const values = rgbaMatch[1].split(',').map(v => v.trim());
+                if (values.length < 3) return fallbackColor;
+                
+                const r = parseInt(values[0]);
+                const g = parseInt(values[1]);
+                const b = parseInt(values[2]);
+                const a = values.length > 3 ? parseFloat(values[3]) : 1;
+                
+                // If alpha is already 1 (opaque), return rgb format
+                if (a >= 1) {
+                    return `rgb(${r}, ${g}, ${b})`;
+                }
+                
+                // Convert transparent color to opaque by blending with white background
+                const blendedR = Math.round(r * a + 255 * (1 - a));
+                const blendedG = Math.round(g * a + 255 * (1 - a));
+                const blendedB = Math.round(b * a + 255 * (1 - a));
+                
+                return `rgb(${blendedR}, ${blendedG}, ${blendedB})`;
+            } catch (error) {
+                console.warn('TableEditor: Failed to convert color to opaque:', color, error);
+                return fallbackColor;
+            }
+        },
+
+        /**
+         * Apply opaque colors to row number and column header elements
+         */
+        applyOpaqueColors: function() {
+            console.log('TableEditor: Applying opaque colors to row numbers and column headers');
+            
+            // Get computed styles for VSCode theme colors
+            const rootStyles = getComputedStyle(document.documentElement);
+            
+            // Colors that might be transparent in VSCode themes
+            const themeColors = {
+                lineHighlight: rootStyles.getPropertyValue('--vscode-editor-lineHighlightBackground').trim(),
+                hoverBackground: rootStyles.getPropertyValue('--vscode-list-hoverBackground').trim(),
+                activeSelection: rootStyles.getPropertyValue('--vscode-list-activeSelectionBackground').trim(),
+                editorForeground: rootStyles.getPropertyValue('--vscode-editor-foreground').trim(),
+                foreground: rootStyles.getPropertyValue('--vscode-foreground').trim()
+            };
+            
+            console.log('TableEditor: Original theme colors:', themeColors);
+            
+            // Convert to opaque colors
+            const opaqueColors = {
+                lineHighlight: this.convertToOpaque(themeColors.lineHighlight, '#f5f5f5'),
+                hoverBackground: this.convertToOpaque(themeColors.hoverBackground, '#e8e8e8'),
+                activeSelection: this.convertToOpaque(themeColors.activeSelection, '#0078d4')
+            };
+            
+            // Determine appropriate text color based on theme
+            const textColor = themeColors.editorForeground || themeColors.foreground || '#333333';
+            
+            console.log('TableEditor: Converted opaque colors:', opaqueColors);
+            console.log('TableEditor: Using text color:', textColor);
+            
+            // Apply opaque colors to row numbers
+            const rowNumbers = document.querySelectorAll('.table-editor td.row-number');
+            rowNumbers.forEach(cell => {
+                cell.style.backgroundColor = opaqueColors.lineHighlight;
+                cell.style.color = textColor;
+            });
+            
+            // Apply opaque colors to column headers
+            const columnHeaders = document.querySelectorAll('.table-editor th');
+            columnHeaders.forEach(header => {
+                if (!header.classList.contains('header-corner')) {
+                    header.style.backgroundColor = opaqueColors.lineHighlight;
+                    header.style.color = textColor;
+                }
+            });
+            
+            // Apply opaque colors to header corner
+            const headerCorner = document.querySelector('.header-corner');
+            if (headerCorner) {
+                headerCorner.style.background = `linear-gradient(135deg, ${opaqueColors.lineHighlight} 0%, ${opaqueColors.hoverBackground} 100%)`;
+                headerCorner.style.color = textColor;
+            }
+            
+            // Apply text color to column titles and cell content
+            const columnTitles = document.querySelectorAll('.column-title, .header-text');
+            columnTitles.forEach(title => {
+                title.style.color = textColor;
+            });
+            
+            const cellContents = document.querySelectorAll('.cell-content');
+            cellContents.forEach(content => {
+                content.style.color = textColor;
+            });
+            
+            console.log('TableEditor: Opaque colors and text colors applied successfully');
+        }
     }
 };
 

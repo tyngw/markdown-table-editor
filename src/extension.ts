@@ -27,11 +27,14 @@ export function activate(context: vscode.ExtensionContext) {
         }
     };
 
+    // Apply once on activation so再起動後も即時反映（パネル作成後にも個別適用されます）
+    applyConfiguredThemeToPanels();
+
     // Register commands
     const openEditorCommand = vscode.commands.registerCommand('markdownTableEditor.openEditor', async (uri?: vscode.Uri) => {
         try {
             console.log('Opening table editor...');
-            
+
             // Get the active editor if no URI provided
             if (!uri) {
                 const activeEditor = vscode.window.activeTextEditor;
@@ -62,7 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             let selectedTableNode;
             let selectedTableIndex = 0;
-            
+
             if (tables.length === 1) {
                 // Only one table, use it directly
                 selectedTableNode = tables[0];
@@ -74,21 +77,21 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             console.log('Using table:', selectedTableNode);
-            
+
             // Create TableDataManager instances for all tables
             const allTableData: TableData[] = [];
             const tableManagersMap = new Map<number, TableDataManager>();
-            
+
             tables.forEach((table, index) => {
                 const manager = new TableDataManager(table, uri!.toString(), index);
                 const tableData = manager.getTableData();
                 allTableData.push(tableData);
                 tableManagersMap.set(index, manager);
             });
-            
+
             // Store managers for all tables with proper indexing
             activeMultiTableManagers.set(uri!.toString(), tableManagersMap);
-            
+
             // Also store the primary manager for backward compatibility
             const primaryManager = tableManagersMap.get(selectedTableIndex);
             if (primaryManager) {
@@ -96,18 +99,18 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             console.log('Creating webview panel...');
-            
+
             // Create and show the webview panel with all tables
             const panel = webviewManager.createTableEditorPanel(allTableData, uri);
-            
+
             // Apply configured theme to the panel (async, after panel is ready)
             applyConfiguredThemeToPanels();
-            
+
             // Wait a moment to ensure panel is stable before showing success message
             setTimeout(() => {
                 console.log('Webview panel created successfully');
             }, 100);
-            
+
             const tableCount = allTableData.length;
             const primaryTable = allTableData[selectedTableIndex];
             vscode.window.showInformationMessage(`Table editor opened with ${tableCount} table${tableCount > 1 ? 's' : ''} (${primaryTable.rows.length} rows, ${primaryTable.headers.length} columns).`);
@@ -150,7 +153,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: requestTableData', data);
             const { uri, panelId, forceRefresh } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -158,41 +161,41 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Always re-read file to get all tables
             console.log('Reading fresh data from file for:', uri.toString(), forceRefresh ? '(forced refresh)' : '(request)');
-            
+
             // Read and parse the file
             const content = await fileHandler.readMarkdownFile(uri);
             const ast = markdownParser.parseDocument(content);
             const tables = markdownParser.findTablesInDocument(ast);
-            
+
             if (tables.length > 0) {
                 // Create managers for all tables
                 const allTableData: TableData[] = [];
                 const tableManagersMap = new Map<number, TableDataManager>();
-                
+
                 tables.forEach((table, index) => {
                     const manager = new TableDataManager(table, uri.toString(), index);
                     const tableData = manager.getTableData();
                     allTableData.push(tableData);
                     tableManagersMap.set(index, manager);
                 });
-                
+
                 // Store managers for all tables
                 activeMultiTableManagers.set(uri.toString(), tableManagersMap);
-                
+
                 // Also store the primary manager for backward compatibility (first table)
                 const primaryManager = tableManagersMap.get(0);
                 if (primaryManager) {
                     activeTableManagers.set(uri.toString(), primaryManager);
                 }
-                
+
                 // Send all table data to webview
                 webviewManager.updateTableData(panel, allTableData, uri);
-                
+
                 // Don't send success message for refreshes to avoid spam
                 if (!forceRefresh) {
                     webviewManager.sendSuccess(panel, `Loaded ${tables.length} table${tables.length > 1 ? 's' : ''} successfully`);
                 }
-                
+
                 console.log(`Table data refreshed: ${tables.length} tables loaded`);
             } else {
                 webviewManager.sendError(panel, 'No tables found in the file');
@@ -214,13 +217,18 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // VSCodeのテーマ切替時にも再適用（inherit 以外でも強制上書きを維持）
+    const colorThemeWatcher = vscode.window.onDidChangeActiveColorTheme(async () => {
+        await applyConfiguredThemeToPanels();
+    });
+
     // Register more internal commands
     const updateCellCommand = vscode.commands.registerCommand('markdownTableEditor.internal.updateCell', async (data: any) => {
         try {
             console.log('Internal command: updateCell', data);
             const { uri, panelId, row, col, value, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -236,7 +244,7 @@ export function activate(context: vscode.ExtensionContext) {
             // Use tableIndex from data, or fall back to 0
             const targetTableIndex = tableIndex !== undefined ? tableIndex : 0;
             let tableDataManager = tableManagersMap.get(targetTableIndex);
-            
+
             if (!tableDataManager) {
                 webviewManager.sendError(panel, `Table manager not found for table ${targetTableIndex}`);
                 return;
@@ -253,14 +261,14 @@ export function activate(context: vscode.ExtensionContext) {
                         const content = await fileHandler.readMarkdownFile(uri);
                         const ast = markdownParser.parseDocument(content);
                         const tables = markdownParser.findTablesInDocument(ast);
-                        
+
                         if (targetTableIndex < tables.length) {
                             // Create new manager with fresh data
                             const newManager = new TableDataManager(tables[targetTableIndex], uri.toString(), targetTableIndex);
                             tableManagersMap.set(targetTableIndex, newManager);
                             tableDataManager = newManager;
                             console.log('Table data refreshed successfully');
-                            
+
                             // Try the update again with fresh data
                             tableDataManager.updateCell(row, col, value);
                         } else {
@@ -274,15 +282,15 @@ export function activate(context: vscode.ExtensionContext) {
                     throw positionError; // Re-throw if it's not a position error
                 }
             }
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
-            
+
             console.log(`Updating table at index ${tableData.metadata.tableIndex}, lines ${tableData.metadata.startLine}-${tableData.metadata.endLine}`);
-            
+
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -310,7 +318,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: updateHeader', data);
             const { uri, panelId, col, value, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -326,7 +334,7 @@ export function activate(context: vscode.ExtensionContext) {
             // Use tableIndex from data, or fall back to 0
             const targetTableIndex = tableIndex !== undefined ? tableIndex : 0;
             let tableDataManager = tableManagersMap.get(targetTableIndex);
-            
+
             if (!tableDataManager) {
                 webviewManager.sendError(panel, `Table manager not found for table ${targetTableIndex}`);
                 return;
@@ -343,14 +351,14 @@ export function activate(context: vscode.ExtensionContext) {
                         const content = await fileHandler.readMarkdownFile(uri);
                         const ast = markdownParser.parseDocument(content);
                         const tables = markdownParser.findTablesInDocument(ast);
-                        
+
                         if (targetTableIndex < tables.length) {
                             // Create new manager with fresh data
                             const newManager = new TableDataManager(tables[targetTableIndex], uri.toString(), targetTableIndex);
                             tableManagersMap.set(targetTableIndex, newManager);
                             tableDataManager = newManager;
                             console.log('Table data refreshed successfully');
-                            
+
                             // Try the update again with fresh data
                             tableDataManager.updateHeader(col, value);
                         } else {
@@ -364,15 +372,15 @@ export function activate(context: vscode.ExtensionContext) {
                     throw positionError; // Re-throw if it's not a position error
                 }
             }
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
-            
+
             console.log(`Updating table header at index ${tableData.metadata.tableIndex}, lines ${tableData.metadata.startLine}-${tableData.metadata.endLine}`);
-            
+
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -399,7 +407,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: addRow', data);
             const { uri, panelId, index, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -421,12 +429,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Add the row
             tableDataManager.addRow(index);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -436,7 +444,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, 'Row added successfully');
         } catch (error) {
@@ -453,7 +461,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: deleteRow', data);
             const { uri, panelId, index, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -475,12 +483,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Delete the row
             tableDataManager.deleteRow(index);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -490,7 +498,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, 'Row deleted successfully');
         } catch (error) {
@@ -507,7 +515,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: addColumn', data);
             const { uri, panelId, index, header, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -529,12 +537,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Add the column
             tableDataManager.addColumn(index, header);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -544,7 +552,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, 'Column added successfully');
         } catch (error) {
@@ -561,7 +569,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: deleteColumn', data);
             const { uri, panelId, index, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -583,12 +591,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Delete the column
             tableDataManager.deleteColumn(index);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -598,7 +606,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, 'Column deleted successfully');
         } catch (error) {
@@ -615,7 +623,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: sort', data);
             const { uri, panelId, column, direction, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -637,12 +645,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Sort the table
             tableDataManager.sortByColumn(column, direction);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -652,7 +660,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, `Table sorted by column ${column} (${direction})`);
         } catch (error) {
@@ -669,7 +677,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: moveRow', data);
             const { uri, panelId, from, to, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -691,12 +699,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Move the row
             tableDataManager.moveRow(from, to);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -706,7 +714,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, `Row moved from ${from} to ${to}`);
         } catch (error) {
@@ -723,7 +731,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: moveColumn', data);
             const { uri, panelId, from, to, tableIndex } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -745,12 +753,12 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Move the column
             tableDataManager.moveColumn(from, to);
-            
+
             // Update the file using table index for more accurate positioning
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
             const tableData = tableDataManager.getTableData();
             await fileHandler.updateTableByIndex(
-                uri, 
+                uri,
                 tableData.metadata.tableIndex,
                 updatedMarkdown
             );
@@ -760,7 +768,7 @@ export function activate(context: vscode.ExtensionContext) {
             tableManagersMap.forEach((manager, index) => {
                 allTableData[index] = manager.getTableData();
             });
-            
+
             webviewManager.updateTableData(panel, allTableData, uri);
             webviewManager.sendSuccess(panel, `Column moved from ${from} to ${to}`);
         } catch (error) {
@@ -777,7 +785,7 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('Internal command: exportCSV', data);
             const { uri, panelId, csvContent, filename, encoding = 'utf8' } = data;
             const panel = webviewManager.getPanel(uri);
-            
+
             if (!panel) {
                 console.error('Panel not found for URI:', uri.toString());
                 return;
@@ -793,7 +801,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Show save dialog with improved default path
             const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-            const defaultPath = workspaceFolder 
+            const defaultPath = workspaceFolder
                 ? vscode.Uri.joinPath(workspaceFolder.uri, defaultFilename)
                 : vscode.Uri.joinPath(vscode.Uri.file(require('path').dirname(uri.fsPath)), defaultFilename);
 
@@ -807,7 +815,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             if (saveUri) {
                 let buffer: Buffer;
-                
+
                 // Handle encoding
                 if (encoding === 'sjis') {
                     try {
@@ -827,7 +835,7 @@ export function activate(context: vscode.ExtensionContext) {
 
                 // Write CSV content to file
                 await vscode.workspace.fs.writeFile(saveUri, buffer);
-                
+
                 const encodingLabel = encoding === 'sjis' ? 'Shift_JIS' : 'UTF-8';
                 webviewManager.sendSuccess(panel, `CSV exported successfully to ${saveUri.fsPath} (${encodingLabel})`);
                 console.log('CSV exported to:', saveUri.fsPath, 'with encoding:', encodingLabel);
@@ -848,6 +856,7 @@ export function activate(context: vscode.ExtensionContext) {
         selectThemeCommand,
         requestTableDataCommand,
         configWatcher,
+        colorThemeWatcher,
         updateCellCommand,
         updateHeaderCommand,
         addRowCommand,
@@ -859,13 +868,13 @@ export function activate(context: vscode.ExtensionContext) {
         moveColumnCommand,
         exportCSVCommand
     );
-    
+
     console.log('All commands registered successfully!');
 }
 
 export function deactivate() {
     console.log('Markdown Table Editor extension is now deactivating...');
-    
+
     try {
         // Dispose WebviewManager resources
         const webviewManager = WebviewManager.getInstance();
@@ -876,7 +885,7 @@ export function deactivate() {
     } catch (error) {
         console.error('Error disposing WebviewManager:', error);
     }
-    
+
     try {
         // Dispose FileHandler resources
         const { disposeFileHandler } = require('./fileHandler');
@@ -885,6 +894,6 @@ export function deactivate() {
     } catch (error) {
         console.error('Error disposing FileHandler:', error);
     }
-    
+
     console.log('Markdown Table Editor extension deactivated successfully');
 }
