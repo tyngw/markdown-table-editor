@@ -108,7 +108,7 @@ body {
 }
 
 .table-editor thead {
-    background-color: var(--vscode-panelSectionHeader-background, var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editorWidget-background, var(--vscode-editor-background))));
+    background-color: var(--vscode-sideBar-background, var(--vscode-activityBar-background));
 }
 
 .table-editor tbody tr:hover {
@@ -135,7 +135,7 @@ body {
 
 /* ====== 4. テーブルヘッダー関連 ====== */
 .table-editor th {
-    background-color: var(--vscode-panelSectionHeader-background, var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editorWidget-background, var(--vscode-editor-background))));
+    background-color: var(--vscode-sideBar-background, var(--vscode-activityBar-background));
     border: 1px solid var(--vscode-panel-border);
     padding: 10px 12px;
     text-align: left;
@@ -146,7 +146,7 @@ body {
     font-weight: 600;
     cursor: pointer;
     user-select: none;
-    color: var(--vscode-editor-foreground, var(--vscode-foreground, #333333));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     transition: background-color 0.15s ease;
     box-sizing: border-box;
     z-index: 100;
@@ -160,7 +160,6 @@ body {
 }
 
 .table-editor th:hover {
-    background-color: var(--vscode-list-hoverBackground);
     opacity: 1 !important;
 }
 
@@ -214,7 +213,6 @@ body {
 }
 
 .column-title:hover {
-    background-color: var(--vscode-list-hoverBackground);
     border-radius: 2px;
     padding: 1px 2px;
     margin: -1px -2px;
@@ -232,7 +230,7 @@ body {
 
 /* Header corner cell */
 .header-corner {
-    background-color: var(--vscode-panelSectionHeader-background, var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editorWidget-background, var(--vscode-editor-background)))) !important;
+    background-color: var(--vscode-sideBar-background, var(--vscode-activityBar-background)) !important;
     border: 1px solid var(--vscode-panel-border);
     width: 60px;
     min-width: 60px;
@@ -245,24 +243,22 @@ body {
     text-align: center;
     vertical-align: middle;
     font-size: 16px;
-    color: var(--vscode-editor-foreground, var(--vscode-foreground, #333333));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     padding: 4px;
     background-clip: padding-box;
     opacity: 1 !important;
 }
 
 .header-corner:hover {
-    background: linear-gradient(135deg,
-            var(--vscode-list-hoverBackground) 0%,
-            var(--vscode-list-activeSelectionBackground) 100%) !important;
-    color: var(--vscode-editor-foreground, var(--vscode-foreground, #333333));
+    background-color: var(--vscode-list-hoverBackground, var(--vscode-button-hoverBackground)) !important;
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     background-clip: padding-box;
     opacity: 1 !important;
 }
 
 /* ====== 5. 行番号セル ====== */
 .table-editor td.row-number {
-    background-color: var(--vscode-panelSectionHeader-background, var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editorWidget-background, var(--vscode-editor-background))));
+    background-color: var(--vscode-sideBar-background, var(--vscode-activityBar-background));
     border: 1px solid var(--vscode-panel-border);
     font-weight: 700;
     text-align: left;
@@ -272,7 +268,7 @@ body {
     min-width: 60px;
     max-width: 60px;
     user-select: none;
-    color: var(--vscode-editor-foreground, var(--vscode-foreground, #333333));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     cursor: pointer;
     transition: background-color 0.15s ease;
     position: sticky !important;
@@ -284,8 +280,7 @@ body {
 }
 
 .table-editor td.row-number:hover {
-    background-color: var(--vscode-list-hoverBackground) !important;
-    color: var(--vscode-editor-foreground, var(--vscode-foreground, #333333));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     opacity: 1 !important;
 }
 
