@@ -312,6 +312,10 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
 
         console.log('Setting up initial data timeout...');
 
+        // Apply theme immediately after message handler is set up (before any delays)
+        // This ensures theme is available as soon as the webview can receive messages
+        this.applyThemeToPanel(panel);
+
         // Send initial data after webview is fully ready
         setTimeout(() => {
             console.log('Sending initial table data to webview...');
@@ -862,21 +866,57 @@ window.scriptUris = ${JSON.stringify(scriptUris.map(uri => uri.toString()))};
      * Build initial theme CSS synchronously for faster panel startup
      */
     private buildInitialThemeCssSync(): string {
-        // Simplified synchronous theme building for faster startup
-        return `
-            :root {
-                --primary-color: var(--vscode-button-background, #007acc);
-                --primary-hover: var(--vscode-button-hoverBackground, #005a9e);
-                --secondary-color: var(--vscode-button-secondaryBackground, #5f6a79);
-                --border-color: var(--vscode-panel-border, #454545);
-                --text-color: var(--vscode-foreground, #cccccc);
-                --background-color: var(--vscode-editor-background, #1e1e1e);
-                --selected-background: var(--vscode-list-activeSelectionBackground, #094771);
-                --hover-background: var(--vscode-list-hoverBackground, #2a2d2e);
-                --input-background: var(--vscode-input-background, #3c3c3c);
-                --input-border: var(--vscode-input-border, #464647);
+        try {
+            // Get the configured theme setting
+            const selectedTheme = vscode.workspace.getConfiguration('markdownTableEditor').get<string>('theme', 'inherit');
+            
+            // If using inherit or no custom theme, provide proper fallback based on VS Code's current theme
+            if (selectedTheme === 'inherit') {
+                // Use VS Code's native CSS variables which will be available in the webview
+                return `
+                    :root {
+                        --primary-color: var(--vscode-button-background, #007acc);
+                        --primary-hover: var(--vscode-button-hoverBackground, #005a9e);
+                        --secondary-color: var(--vscode-button-secondaryBackground, #5f6a79);
+                        --border-color: var(--vscode-panel-border, #454545);
+                        --text-color: var(--vscode-foreground, #cccccc);
+                        --background-color: var(--vscode-editor-background, #1e1e1e);
+                        --selected-background: var(--vscode-list-activeSelectionBackground, #094771);
+                        --hover-background: var(--vscode-list-hoverBackground, #2a2d2e);
+                        --input-background: var(--vscode-input-background, #3c3c3c);
+                        --input-border: var(--vscode-input-border, #464647);
+                    }
+                `;
+            } else {
+                // For custom themes, provide a proper fallback until the async theme loads
+                // Use the same fallback logic as buildThemeVariablesCss for consistency
+                const themeKind = vscode.window.activeColorTheme.kind;
+                const isDark = themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast;
+                
+                if (isDark) {
+                    return `:root{--vscode-editor-background:#1e1e1e;--vscode-foreground:#cccccc;--vscode-panel-border:#3c3c3c;--vscode-focusBorder:#007acc;--vscode-list-hoverBackground:#2a2d2e;--vscode-editor-lineHighlightBackground:#2a2d2e;--vscode-descriptionForeground:#9d9d9d;--vscode-input-background:#3c3c3c;--vscode-inputOption-activeBorder:#007acc;--vscode-list-activeSelectionBackground:#094771;--vscode-list-activeSelectionForeground:#ffffff;--vscode-button-background:#007acc;--vscode-button-hoverBackground:#005a9e;--vscode-button-secondaryBackground:#5f6a79;--vscode-panel-border:#454545;--vscode-input-border:#464647;}`;
+                } else {
+                    return `:root{--vscode-editor-background:#ffffff;--vscode-foreground:#333333;--vscode-panel-border:#e5e5e5;--vscode-focusBorder:#007acc;--vscode-list-hoverBackground:#f2f2f2;--vscode-editor-lineHighlightBackground:#f7f7f7;--vscode-descriptionForeground:#6e6e6e;--vscode-input-background:#f3f3f3;--vscode-inputOption-activeBorder:#007acc;--vscode-list-activeSelectionBackground:#0078d4;--vscode-list-activeSelectionForeground:#ffffff;--vscode-button-background:#007acc;--vscode-button-hoverBackground:#005a9e;--vscode-button-secondaryBackground:#5f6a79;--vscode-panel-border:#e5e5e5;--vscode-input-border:#d9d9d9;}`;
+                }
             }
-        `;
+        } catch (error) {
+            console.warn('Failed to build initial theme CSS, using default fallback:', error);
+            // Safe fallback if anything goes wrong
+            return `
+                :root {
+                    --primary-color: var(--vscode-button-background, #007acc);
+                    --primary-hover: var(--vscode-button-hoverBackground, #005a9e);
+                    --secondary-color: var(--vscode-button-secondaryBackground, #5f6a79);
+                    --border-color: var(--vscode-panel-border, #454545);
+                    --text-color: var(--vscode-foreground, #cccccc);
+                    --background-color: var(--vscode-editor-background, #1e1e1e);
+                    --selected-background: var(--vscode-list-activeSelectionBackground, #094771);
+                    --hover-background: var(--vscode-list-hoverBackground, #2a2d2e);
+                    --input-background: var(--vscode-input-background, #3c3c3c);
+                    --input-border: var(--vscode-input-border, #464647);
+                }
+            `;
+        }
     }
 
     /**

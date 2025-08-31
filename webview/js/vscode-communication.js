@@ -75,6 +75,8 @@ const VSCodeCommunication = {
             case 'applyThemeVariables':
                 try {
                     const cssText = (message.data && message.data.cssText) || '';
+                    console.log('VSCodeCommunication: Applying theme variables, CSS length:', cssText.length);
+                    
                     // 1) スタイルタグ（後方互換）
                     let styleEl = document.getElementById('mte-theme-override');
                     if (!styleEl) {
@@ -100,6 +102,8 @@ const VSCodeCommunication = {
                             });
                         }
                     }
+                    
+                    console.log('VSCodeCommunication: Theme variables applied successfully');
                 } catch (e) {
                     console.error('VSCodeCommunication: Failed to apply theme variables', e);
                 }

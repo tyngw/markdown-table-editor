@@ -239,6 +239,21 @@ const TableEditor = {
                 if (moduleObject) {
                     console.log('TableEditor: Found module object for', config.name);
                     this.registerModule(config.name, moduleObject);
+                    
+                    // If VSCodeCommunication was just registered, immediately request theme variables
+                    if (config.name === 'VSCodeCommunication') {
+                        console.log('TableEditor: VSCodeCommunication registered, requesting theme variables immediately');
+                        try {
+                            // Small delay to ensure the module is fully initialized
+                            setTimeout(() => {
+                                if (this.modules['VSCodeCommunication'] && this.modules['VSCodeCommunication'].sendMessage) {
+                                    this.modules['VSCodeCommunication'].sendMessage({ command: 'requestThemeVariables' });
+                                }
+                            }, 50);
+                        } catch (error) {
+                            console.warn('TableEditor: Failed to request theme variables after VSCodeCommunication init:', error);
+                        }
+                    }
                 } else {
                     console.warn('TableEditor: Module object not found for', config.name);
                 }
