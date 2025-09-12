@@ -665,13 +665,7 @@ textarea.cell-input[data-multiline="true"] {
     color: var(--vscode-editorInfo-foreground);
 }
 
-.sort-asc::after {
-    content: "▲";
-}
-
-.sort-desc::after {
-    content: "▼";
-}
+/* Remove legacy pseudo-element arrows; the indicator renders glyphs directly */
 
 .sort-actions {
     display: flex;
@@ -715,6 +709,13 @@ textarea.cell-input[data-multiline="true"] {
     font-size: 11px;
     color: var(--vscode-notifications-foreground);
     margin-right: 8px;
+}
+
+.inline-sort-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 12px;
 }
 
 /* ====== 11. ドラッグ&ドロップ ====== */

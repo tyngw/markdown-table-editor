@@ -19,6 +19,7 @@ interface TableBodyProps {
 }
 
 const TableBody: React.FC<TableBodyProps> = ({
+  headers,
   rows,
   editorState,
   onCellUpdate,
@@ -84,11 +85,33 @@ const TableBody: React.FC<TableBodyProps> = ({
   }, [onCellEdit])
 
   // セル編集の確定
-  const commitCellEdit = useCallback((row: number, col: number, value: string) => {
+  const commitCellEdit = useCallback((row: number, col: number, value: string, move?: 'right' | 'left' | 'down' | 'up') => {
     const storageValue = processCellContentForStorage(value)
     onCellUpdate(row, col, storageValue)
     onCellEdit(null)
-  }, [onCellUpdate, onCellEdit])
+    // After committing, move selection per legacy behavior
+    if (typeof move !== 'undefined') {
+      let nextRow = row
+      let nextCol = col
+      const maxRow = rows.length - 1
+      const maxCol = headers.length - 1
+      switch (move) {
+        case 'right':
+          if (nextCol < maxCol) { nextCol += 1 } else if (nextRow < maxRow) { nextRow += 1; nextCol = 0 }
+          break
+        case 'left':
+          if (nextCol > 0) { nextCol -= 1 } else if (nextRow > 0) { nextRow -= 1; nextCol = maxCol }
+          break
+        case 'down':
+          if (nextRow < maxRow) { nextRow += 1 }
+          break
+        case 'up':
+          if (nextRow > 0) { nextRow -= 1 }
+          break
+      }
+      onCellSelect(nextRow, nextCol, false)
+    }
+  }, [onCellUpdate, onCellEdit, onCellSelect, rows.length, headers.length])
 
   return (
     <tbody>
@@ -154,7 +177,7 @@ const TableBody: React.FC<TableBodyProps> = ({
                 {isEditing ? (
                   <CellEditor
                     value={processCellContentForEditing(cell || '')}
-                    onCommit={(value) => commitCellEdit(rowIndex, colIndex, value)}
+                    onCommit={(value, move) => commitCellEdit(rowIndex, colIndex, value, move)}
                     onCancel={() => onCellEdit(null)}
                   />
                 ) : (
@@ -179,7 +202,7 @@ export default TableBody
 
 interface CellEditorProps {
   value: string
-  onCommit: (value: string) => void
+  onCommit: (value: string, move?: 'right' | 'left' | 'down' | 'up') => void
   onCancel: () => void
 }
 
@@ -233,7 +256,8 @@ const CellEditor: React.FC<CellEditorProps> = ({ value, onCommit, onCancel }) =>
     } else if (e.key === 'Enter' && !isComposing) {
       // Enter で編集確定（IME入力中でない場合のみ）
       e.preventDefault()
-      onCommit(currentValue)
+      onCommit(currentValue, 'down')
+      // 下のセルへ移動は親で処理（onCommit後にフォーカスが戻るため）
     } else if (e.key === 'Enter' && isComposing) {
       // IME入力中のEnterは確定として処理し、編集は継続
       e.stopPropagation()
@@ -243,7 +267,7 @@ const CellEditor: React.FC<CellEditorProps> = ({ value, onCommit, onCancel }) =>
       onCancel()
     } else if (e.key === 'Tab') {
       e.preventDefault()
-      onCommit(currentValue)
+      onCommit(currentValue, e.shiftKey ? 'left' : 'right')
     }
     // Stop propagation to prevent other keyboard handlers
     e.stopPropagation()
