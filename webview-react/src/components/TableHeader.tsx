@@ -148,7 +148,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
         
         {/* Column headers with enhanced styling */}
         {headers.map((header, col) => {
-          const sortClass = sortState.column === col ? `sort-${sortState.direction}` : ''
+          // Remove CSS-based pseudo-element arrows; rely solely on .sort-indicator
           const sortIndicatorClass = sortState.isViewOnly ? 'view-only' : 'committed'
           const columnLetter = getColumnLetter(col)
           const storedWidth = columnWidths[col] || 150
@@ -176,7 +176,7 @@ const TableHeader: React.FC<TableHeaderProps> = ({
                   onShowColumnContextMenu(e, col)
                 }
               }}
-              className={`column-header ${sortClass} ${userResizedClass}`}
+              className={`column-header ${userResizedClass}`}
               data-col={col}
               style={widthStyle}
               title={`Column ${columnLetter}: ${header}`}

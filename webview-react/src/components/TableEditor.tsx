@@ -9,7 +9,6 @@ import { useStatus } from '../contexts/StatusContext'
 import TableHeader from './TableHeader'
 import TableBody from './TableBody'
 import ContextMenu, { ContextMenuState } from './ContextMenu'
-import SortActions from './SortActions'
 
 interface TableEditorProps {
   tableData: TableData
@@ -389,13 +388,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
 
   return (
     <div id="table-content">
-      {/* ソートアクション */}
-      {editorState.sortState.isViewOnly && (
-        <SortActions
-          onCommitSort={handleCommitSort}
-          onRestoreOriginal={handleRestoreOriginal}
-        />
-      )}
+  {/* ソートアクションは下部のエクスポートアクション列に統合 */}
 
       {/* テーブル */}
       <div className="table-container">
@@ -432,8 +425,19 @@ const TableEditor: React.FC<TableEditorProps> = ({
         </table>
       </div>
 
-      {/* エクスポートアクション */}
+      {/* エクスポート/ソートアクション */}
       <div className="export-actions">
+        {editorState.sortState.isViewOnly && (
+          <div className="inline-sort-actions">
+            <button className="sort-action-btn secondary" onClick={handleRestoreOriginal}>
+              📄 Restore Original
+            </button>
+            <button className="sort-action-btn" onClick={handleCommitSort}>
+              💾 Save Sort to File
+            </button>
+            <span className="sort-status-badge">📊 Viewing sorted data</span>
+          </div>
+        )}
         <select 
           className="encoding-select" 
           id="encodingSelect"
