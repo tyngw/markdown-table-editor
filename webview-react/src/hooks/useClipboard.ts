@@ -70,14 +70,44 @@ export function useClipboard() {
     currentCell: CellPosition | null
   ): Promise<string[][] | null> => {
     try {
-      if (!currentCell) return null
-
+      console.log('🔍 pasteFromClipboard called with currentCell:', currentCell)
+      
+      // currentCellがnullでもペーストを許可（セル選択後にペーストされる）
       const clipboardText = await navigator.clipboard.readText()
-      if (!clipboardText) return null
+      console.log('🔍 clipboardText:', clipboardText)
+      
+      if (!clipboardText || clipboardText.trim() === '') {
+        console.log('🔍 No clipboard text available')
+        return null
+      }
 
-      return parseTSV(clipboardText)
+      const result = parseTSV(clipboardText)
+      console.log('🔍 Parsed TSV result:', result)
+      return result
     } catch (error) {
       console.error('Failed to paste from clipboard:', error)
+      console.log('🔍 Clipboard access error details:', error)
+      
+      // フォールバック: execCommandを試す（古いブラウザ対応）
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        
+        const success = document.execCommand('paste')
+        const text = textarea.value
+        document.body.removeChild(textarea)
+        
+        if (success && text) {
+          console.log('🔍 execCommand paste success:', text)
+          return parseTSV(text)
+        }
+      } catch (fallbackError) {
+        console.error('Fallback paste also failed:', fallbackError)
+      }
+      
       return null
     }
   }, [parseTSV])

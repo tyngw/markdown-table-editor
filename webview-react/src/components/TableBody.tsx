@@ -31,6 +31,8 @@ const TableBody: React.FC<TableBodyProps> = ({
   getDropProps
 }) => {
   const { getStyle } = useTheme()
+  // 保存用: 編集開始前に測ったセルの高さを保持
+  const savedHeightsRef = useRef<Map<string, { original: number; maxOther: number }>>(new Map())
   // Handle cell click - check if it's clicking on an input field
   const handleCellClick = useCallback((row: number, col: number, event: React.MouseEvent) => {
     // Check if the click target is a cell input field
@@ -81,13 +83,61 @@ const TableBody: React.FC<TableBodyProps> = ({
 
   // セル編集の開始
   const startCellEdit = useCallback((row: number, col: number) => {
-    onCellEdit({ row, col })
+    console.log(`🏁 Starting cell edit for [${row}, ${col}]`)
+    
+    // 編集開始前に元の高さを保存
+    try {
+      const cellElement = document.querySelector(`[data-row="${row}"][data-col="${col}"]`)
+      console.log('🔍 Found cell element:', cellElement, 'offsetHeight:', (cellElement as HTMLElement)?.offsetHeight)
+      
+      if (cellElement instanceof HTMLElement) {
+        const originalHeight = cellElement.offsetHeight
+        cellElement.dataset.originalHeight = originalHeight.toString()
+        console.log(`💾 Saved originalHeight: ${originalHeight}`)
+        
+        // 同じ行の他セルの最大高さも保存
+        const rowElement = cellElement.closest('tr')
+        let maxOther = 0
+        if (rowElement) {
+          const rowCells = rowElement.querySelectorAll('td[data-col]')
+          console.log(`🔍 Found ${rowCells.length} cells in row`)
+          rowCells.forEach((c) => {
+            if (c !== cellElement && c instanceof HTMLElement) {
+              const height = c.offsetHeight
+              maxOther = Math.max(maxOther, height)
+              console.log(`🔍 Other cell height: ${height}, maxOther now: ${maxOther}`)
+            }
+          })
+        }
+        cellElement.dataset.maxOtherHeight = String(maxOther)
+        console.log(`💾 Saved maxOtherHeight: ${maxOther}`)
+        
+        // Mapにも保存（再描画でdata属性が取れない場合の保険）
+        savedHeightsRef.current.set(`${row}-${col}`, { original: originalHeight, maxOther })
+        console.log(`💾 Saved to Map: original=${originalHeight}, maxOther=${maxOther}`)
+      }
+    } catch (error) {
+      console.warn('Failed to save original cell height:', error)
+    }    onCellEdit({ row, col })
   }, [onCellEdit])
 
   // セル編集の確定
   const commitCellEdit = useCallback((row: number, col: number, value: string, move?: 'right' | 'left' | 'down' | 'up') => {
     const storageValue = processCellContentForStorage(value)
     onCellUpdate(row, col, storageValue)
+    
+    // data属性をクリーンアップ
+    try {
+      const cellElement = document.querySelector(`[data-row="${row}"][data-col="${col}"]`)
+      if (cellElement instanceof HTMLElement) {
+        if (cellElement.dataset.originalHeight) delete cellElement.dataset.originalHeight
+        if (cellElement.dataset.maxOtherHeight) delete cellElement.dataset.maxOtherHeight
+        console.log('🧹 Cleaned up height data attributes')
+      }
+    } catch (error) {
+      console.warn('Failed to cleanup original height:', error)
+    }
+    
     onCellEdit(null)
     // After committing, move selection per legacy behavior
     if (typeof move !== 'undefined') {
@@ -112,6 +162,23 @@ const TableBody: React.FC<TableBodyProps> = ({
       onCellSelect(nextRow, nextCol, false)
     }
   }, [onCellUpdate, onCellEdit, onCellSelect, rows.length, headers.length])
+
+  // セル編集のキャンセル
+  const cancelCellEdit = useCallback((row: number, col: number) => {
+    // data属性をクリーンアップ
+    try {
+      const cellElement = document.querySelector(`[data-row="${row}"][data-col="${col}"]`)
+      if (cellElement instanceof HTMLElement) {
+        if (cellElement.dataset.originalHeight) delete cellElement.dataset.originalHeight
+        if (cellElement.dataset.maxOtherHeight) delete cellElement.dataset.maxOtherHeight
+        console.log('🧹 Cleaned up height data attributes (cancel)')
+      }
+    } catch (error) {
+      console.warn('Failed to cleanup original height:', error)
+    }
+    
+    onCellEdit(null)
+  }, [onCellEdit])
 
   return (
     <tbody>
@@ -174,11 +241,21 @@ const TableBody: React.FC<TableBodyProps> = ({
                 style={{...widthStyle, ...selectionStyle}}
                 title={`Cell ${getColumnLetter(colIndex)}${rowIndex + 1}`}
               >
-                {isEditing ? (
+        {isEditing ? (
                   <CellEditor
                     value={processCellContentForEditing(cell || '')}
                     onCommit={(value, move) => commitCellEdit(rowIndex, colIndex, value, move)}
-                    onCancel={() => onCellEdit(null)}
+                    onCancel={() => {
+                      if (editorState.currentEditingCell) {
+                        cancelCellEdit(editorState.currentEditingCell.row, editorState.currentEditingCell.col)
+                      } else {
+                        onCellEdit(null)
+                      }
+                    }}
+                    rowIndex={rowIndex}
+                    colIndex={colIndex}
+          originalHeight={savedHeightsRef.current.get(`${rowIndex}-${colIndex}`)?.original}
+          maxOtherHeight={savedHeightsRef.current.get(`${rowIndex}-${colIndex}`)?.maxOther}
                   />
                 ) : (
                   <div className="cell-content">
@@ -204,9 +281,13 @@ interface CellEditorProps {
   value: string
   onCommit: (value: string, move?: 'right' | 'left' | 'down' | 'up') => void
   onCancel: () => void
+  rowIndex?: number
+  colIndex?: number
+  originalHeight?: number
+  maxOtherHeight?: number
 }
 
-const CellEditor: React.FC<CellEditorProps> = ({ value, onCommit, onCancel }) => {
+const CellEditor: React.FC<CellEditorProps> = ({ value, onCommit, onCancel, rowIndex, colIndex, originalHeight, maxOtherHeight }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [currentValue, setCurrentValue] = useState(value)
   const [isComposing, setIsComposing] = useState(false)
@@ -224,8 +305,83 @@ const CellEditor: React.FC<CellEditorProps> = ({ value, onCommit, onCancel }) =>
       const adjustHeight = () => {
         textarea.style.height = 'auto'
         const contentHeight = textarea.scrollHeight
-        const minHeight = Math.max(contentHeight, 32)
-        textarea.style.height = minHeight + 'px'
+        
+        // 編集対象セルの元の高さ/他セル最大高さを取得（props優先、なければdata属性）
+        let editingCellOriginalHeight = originalHeight ?? 0
+        let savedMaxOther = maxOtherHeight ?? 0
+        
+        console.log(`🔍 Initial values - originalHeight prop: ${originalHeight}, maxOtherHeight prop: ${maxOtherHeight}`)
+        console.log(`🔍 Initial values - editingCellOriginalHeight: ${editingCellOriginalHeight}, savedMaxOther: ${savedMaxOther}`)
+        
+        if (typeof rowIndex === 'number' && typeof colIndex === 'number') {
+          try {
+            const cellElement = document.querySelector(`[data-row="${rowIndex}"][data-col="${colIndex}"]`)
+            console.log(`🔍 Found editing cell element:`, cellElement)
+            
+            if (!editingCellOriginalHeight && cellElement instanceof HTMLElement && cellElement.dataset.originalHeight) {
+              editingCellOriginalHeight = parseInt(cellElement.dataset.originalHeight)
+              console.log('🔍 Retrieved original cell height from dataset:', editingCellOriginalHeight)
+            }
+            if (!savedMaxOther && cellElement instanceof HTMLElement && cellElement.dataset.maxOtherHeight) {
+              savedMaxOther = parseInt(cellElement.dataset.maxOtherHeight)
+              console.log('🔍 Retrieved max other height from dataset:', savedMaxOther)
+            }
+          } catch (error) {
+            console.warn('Failed to get original cell height:', error)
+          }
+        }
+        
+        // 同じ行の他のセルの高さを取得
+        let maxOtherCellHeight = savedMaxOther || 0
+        if (!savedMaxOther && typeof rowIndex === 'number') {
+          try {
+            const rowCells = document.querySelectorAll(`[data-row="${rowIndex}"]`)
+            rowCells.forEach((cell) => {
+              if (cell instanceof HTMLElement && !cell.classList.contains('editing')) {
+                const cellHeight = cell.offsetHeight
+                if (cellHeight > maxOtherCellHeight) {
+                  maxOtherCellHeight = cellHeight
+                }
+              }
+            })
+          } catch (error) {
+            console.warn('Failed to get row cell heights:', error)
+          }
+        }
+        
+        // 現在のtextareaの高さも取得（legacy版と同様に）
+        const currentTextareaHeight = textarea.offsetHeight
+        
+        // legacy版の論理：テキスト要求高さ、現在のtextarea高さ、他セル高さ、最小高さの最大値
+        // これにより初期設定した高さ（元セルの高さ）が保持される
+        const minHeight = 32
+        let finalHeight
+        
+        if (editingCellOriginalHeight > maxOtherCellHeight) {
+          // 編集対象セルが最も高い場合：テキスト要求高さ、現在の高さ、元の高さの最大値
+          finalHeight = Math.max(contentHeight, currentTextareaHeight, editingCellOriginalHeight, minHeight)
+          console.log(`🔍 Cell is tallest, using max(content=${contentHeight}, current=${currentTextareaHeight}, original=${editingCellOriginalHeight}) = ${finalHeight}`)
+        } else {
+          // 他のセルの方が高い場合：テキスト要求高さ、現在の高さ、他セル高さの最大値  
+          finalHeight = Math.max(contentHeight, currentTextareaHeight, maxOtherCellHeight, minHeight)
+          console.log(`🔍 Other cells taller, using max(content=${contentHeight}, current=${currentTextareaHeight}, maxOther=${maxOtherCellHeight}) = ${finalHeight}`)
+        }
+
+        textarea.style.setProperty('height', finalHeight + 'px', 'important')
+        
+        // セルの高さも同期（legacy版と同様）
+        const cellElement = document.querySelector(`[data-row="${rowIndex}"][data-col="${colIndex}"]`)
+        if (cellElement instanceof HTMLElement) {
+          cellElement.style.setProperty('height', finalHeight + 'px', 'important')
+        }
+        
+        console.log('🔍 CellEditor height adjustment:', {
+          originalCellHeight: editingCellOriginalHeight,
+          maxOtherCellHeight,
+          contentHeight,
+          currentTextareaHeight,
+          finalHeight
+        })
       }
       
       adjustHeight()
