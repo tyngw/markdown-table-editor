@@ -545,6 +545,123 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    const bulkUpdateCellsCommand = vscode.commands.registerCommand('markdownTableEditor.internal.bulkUpdateCells', async (data: any) => {
+        try {
+            console.log('🎯 Extension: Internal command bulkUpdateCells received');
+            console.log('📋 Raw data:', JSON.stringify(data, null, 2));
+            
+            const { uri, panelId, updates, tableIndex } = data;
+
+            // Get the URI string and panel ID to use for manager lookup
+            let uriString: string;
+            let actualPanelId: string;
+
+            if (uri) {
+                uriString = typeof uri === 'string' ? uri : (uri.external || uri.toString());
+            } else {
+                uriString = webviewManager.getActivePanelUri() || '';
+            }
+
+            actualPanelId = panelId || uriString;
+
+            if (!uriString || !updates || !Array.isArray(updates)) {
+                console.error('❌ Invalid data for bulkUpdateCells command');
+                return;
+            }
+
+            console.log('🔍 Using URI:', uriString);
+            console.log('🔍 Using Panel ID:', actualPanelId);
+            console.log('🎯 Target table index:', tableIndex);
+            console.log('📊 Updates count:', updates.length);
+
+            const panel = webviewManager.getPanel(actualPanelId);
+            if (!panel) {
+                console.error('❌ Panel not found for panel ID:', actualPanelId);
+                return;
+            }
+
+            // Get the specific table manager by index using the actual panel ID
+            const tableManagersMap = activeMultiTableManagers.get(actualPanelId);
+            if (!tableManagersMap) {
+                console.error('❌ Table managers not found for panel ID:', actualPanelId);
+                webviewManager.sendError(panel, 'Table managers not found');
+                return;
+            }
+
+            const targetTableIndex = tableIndex !== undefined ? tableIndex : 0;
+            let tableDataManager = tableManagersMap.get(targetTableIndex);
+
+            if (!tableDataManager) {
+                console.error(`❌ Table manager not found for table ${targetTableIndex}`);
+                webviewManager.sendError(panel, `Table manager not found for table ${targetTableIndex}`);
+                return;
+            }
+
+            console.log(`✅ Found table manager for table ${targetTableIndex}`);
+
+            // Apply all updates
+            for (const update of updates) {
+                const { row, col, value } = update;
+                console.log(`🔧 Updating cell [${row}, ${col}] = "${value}"`);
+                
+                try {
+                    tableDataManager.updateCell(row, col, value);
+                } catch (positionError) {
+                    if (positionError instanceof Error && positionError.message.includes('Invalid cell position')) {
+                        console.log('Invalid position detected during bulk update, attempting to refresh table data from file...');
+                        try {
+                            // Read fresh content from file and re-parse
+                            const fileUri = vscode.Uri.parse(uriString);
+                            const content = await fileHandler.readMarkdownFile(fileUri);
+                            const ast = markdownParser.parseDocument(content);
+                            const tables = markdownParser.findTablesInDocument(ast);
+
+                            if (targetTableIndex < tables.length) {
+                                // Create new manager with fresh data
+                                const newManager = new TableDataManager(tables[targetTableIndex], actualPanelId, targetTableIndex);
+                                tableManagersMap.set(targetTableIndex, newManager);
+                                tableDataManager = newManager;
+                                console.log('Table data refreshed successfully');
+
+                                // Try the update again with fresh data
+                                tableDataManager.updateCell(row, col, value);
+                            } else {
+                                throw new Error(`Table index ${targetTableIndex} not found in refreshed data`);
+                            }
+                        } catch (refreshError) {
+                            console.error('Could not refresh table data:', refreshError);
+                            throw positionError;
+                        }
+                    } else {
+                        throw positionError;
+                    }
+                }
+            }
+
+            // Update the file once after all updates
+            const updatedMarkdown = tableDataManager.serializeToMarkdown();
+            const tableData = tableDataManager.getTableData();
+
+            console.log(`Updating table at index ${tableData.metadata.tableIndex}, lines ${tableData.metadata.startLine}-${tableData.metadata.endLine}`);
+
+            const fileUri = vscode.Uri.parse(uriString);
+            await fileHandler.updateTableByIndex(
+                fileUri,
+                tableData.metadata.tableIndex,
+                updatedMarkdown
+            );
+
+            console.log(`Bulk update completed successfully for ${updates.length} cells`);
+        } catch (error) {
+            console.error('Error in bulkUpdateCells:', error);
+            const actualPanelId = data.panelId || data.uri || webviewManager.getActivePanelUri();
+            const panel = actualPanelId ? webviewManager.getPanel(actualPanelId) : null;
+            if (panel) {
+                webviewManager.sendError(panel, `Failed to bulk update cells: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        }
+    });
+
     const updateHeaderCommand = vscode.commands.registerCommand('markdownTableEditor.internal.updateHeader', async (data: any) => {
         try {
             console.log('Internal command: updateHeader', data);
@@ -1242,6 +1359,7 @@ export function activate(context: vscode.ExtensionContext) {
         configWatcher,
         colorThemeWatcher,
         updateCellCommand,
+        bulkUpdateCellsCommand,
         updateHeaderCommand,
         addRowCommand,
         deleteRowCommand,
