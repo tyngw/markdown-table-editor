@@ -15,6 +15,19 @@ export function useTableEditor(initialData: TableData) {
     originalData: null
   })
 
+  // ドラッグ中の高速応答性のためのRef管理
+  const dragSelectionRef = useRef<{
+    isSelecting: boolean
+    startCell: CellPosition | null
+    currentSelectedCells: Set<string>
+    currentSelectionRange: SelectionRange | null
+  }>({
+    isSelecting: false,
+    startCell: null,
+    currentSelectedCells: new Set(),
+    currentSelectionRange: null
+  })
+
   // Sync state when the incoming table changes (e.g., tab switch)
   // Use a ref to track if we should skip the reset due to ongoing sort operation
   const skipResetRef = useRef(false)
@@ -124,7 +137,73 @@ export function useTableEditor(initialData: TableData) {
     })
   }, [])
 
-  // セルを選択
+  // ドラッグ開始
+  const startDragSelection = useCallback((row: number, col: number) => {
+    dragSelectionRef.current.isSelecting = true
+    dragSelectionRef.current.startCell = { row, col }
+    const cellKey = `${row}-${col}`
+    const newSelectedCells = new Set([cellKey])
+    const newSelectionRange = { start: { row, col }, end: { row, col } }
+    
+    dragSelectionRef.current.currentSelectedCells = newSelectedCells
+    dragSelectionRef.current.currentSelectionRange = newSelectionRange
+    
+    // 即座に表示を更新
+    setSelectedCells(newSelectedCells)
+    setSelectionRange(newSelectionRange)
+    setIsSelecting(true)
+  }, [])
+
+  // ドラッグ中の選択更新（高速処理用）
+  const updateDragSelection = useCallback((row: number, col: number) => {
+    if (!dragSelectionRef.current.isSelecting || !dragSelectionRef.current.startCell) {
+      return
+    }
+    
+    const startCell = dragSelectionRef.current.startCell
+    const newRange = { start: startCell, end: { row, col } }
+    
+    // 範囲内のすべてのセルを選択
+    const newSelectedCells = new Set<string>()
+    const minRow = Math.min(newRange.start.row, newRange.end.row)
+    const maxRow = Math.max(newRange.start.row, newRange.end.row)
+    const minCol = Math.min(newRange.start.col, newRange.end.col)
+    const maxCol = Math.max(newRange.start.col, newRange.end.col)
+    
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        newSelectedCells.add(`${r}-${c}`)
+      }
+    }
+    
+    dragSelectionRef.current.currentSelectedCells = newSelectedCells
+    dragSelectionRef.current.currentSelectionRange = newRange
+    
+    // Refのみ更新、Stateの更新は間引き
+    // RequestAnimationFrameを使って適度にUIを更新
+    requestAnimationFrame(() => {
+      if (dragSelectionRef.current.isSelecting) {
+        setSelectedCells(new Set(dragSelectionRef.current.currentSelectedCells))
+        setSelectionRange(dragSelectionRef.current.currentSelectionRange)
+      }
+    })
+  }, [])
+
+  // ドラッグ終了
+  const endDragSelection = useCallback(() => {
+    if (dragSelectionRef.current.isSelecting) {
+      // 最終状態をStateに反映
+      setSelectedCells(new Set(dragSelectionRef.current.currentSelectedCells))
+      setSelectionRange(dragSelectionRef.current.currentSelectionRange)
+      setIsSelecting(false)
+      
+      // Refをリセット
+      dragSelectionRef.current.isSelecting = false
+      dragSelectionRef.current.startCell = null
+    }
+  }, [])
+
+  // セルを選択（既存機能を保持、通常クリック用）
   const selectCell = useCallback((row: number, col: number, extend = false) => {
     const cellKey = `${row}-${col}`
     
@@ -458,6 +537,10 @@ export function useTableEditor(initialData: TableData) {
     moveColumn,
     sortColumn,
     restoreOriginalView,
-    commitSortToFile
+    commitSortToFile,
+    // 新しいドラッグ選択関数
+    startDragSelection,
+    updateDragSelection,
+    endDragSelection
   }
 }

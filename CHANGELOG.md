@@ -5,6 +5,28 @@ All notable changes to the Markdown Table Editor extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-09-13
+
+### Added
+- **Automatic Table Expansion on Paste**: テーブルの範囲外にデータを貼り付けた際、不足する行や列を自動的に追加する機能を実装
+  - Excel等からコピーした大きなデータセットを貼り付ける際、テーブルが自動で拡張される
+  - 追加された行・列数をステータスメッセージで通知
+  - Legacy版の動作を完全に再現
+
+### Improved
+- **Cell Selection Performance**: 複数セル選択時のUI応答性を大幅に改善
+  - ドラッグ中の選択状態をuseRefで管理し、高速なマウス操作に追従
+  - requestAnimationFrameによる効率的な再描画処理
+  - マウスの高速移動でも選択範囲ハイライトが正確に追従
+
+- **Cell Editor Height Calculation**: 編集モードのテキストボックスの高さ計算を改善
+  - 同じ行の他のセルの高さも考慮した初期高さ設定
+  - 編集開始時の行レイアウト変化によるガタつきを解消
+  - Legacy版のstyleInputElement関数の動作を再現
+
+## [0.7.0] - 2025-09-13
+- WebViewをReactに移行
+
 ## [0.6.4] - 2025-01-15
 
 ### Fixed

@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { buildThemeVariablesCss } from './themeUtils';
 
 export interface WebviewMessage {
-    command: 'requestTableData' | 'updateCell' | 'updateHeader' | 'addRow' | 'deleteRows' | 'addColumn' | 'deleteColumns' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables';
+    command: 'requestTableData' | 'updateCell' | 'bulkUpdateCells' | 'updateHeader' | 'addRow' | 'deleteRows' | 'addColumn' | 'deleteColumns' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables';
     data?: any;
     timestamp?: number;
     responseTime?: number;
@@ -447,6 +447,10 @@ export class WebviewManager {
                     await this.handleCellUpdate(message.data, panel, uri);
                     break;
 
+                case 'bulkUpdateCells':
+                    await this.handleBulkUpdateCells(message.data, panel, uri);
+                    break;
+
                 case 'updateHeader':
                     await this.handleHeaderUpdate(message.data, panel, uri);
                     break;
@@ -539,7 +543,7 @@ export class WebviewManager {
      */
     public validateMessageCommand(message: any): boolean {
         const validCommands = [
-            'requestTableData', 'updateCell', 'updateHeader', 'addRow', 'deleteRows',
+            'requestTableData', 'updateCell', 'bulkUpdateCells', 'updateHeader', 'addRow', 'deleteRows',
             'addColumn', 'deleteColumns', 'sort', 'moveRow', 'moveColumn', 'exportCSV', 'pong', 'switchTable', 'requestThemeVariables'
         ];
 
@@ -557,6 +561,13 @@ export class WebviewManager {
 
             case 'updateCell':
                 return this.validateCellUpdateData(message.data);
+
+            case 'bulkUpdateCells': {
+                const data = message.data;
+                if (!data || !Array.isArray(data.updates)) { return false; }
+                // basic check for update items
+                return data.updates.every((u: any) => typeof u === 'object' && typeof u.row === 'number' && typeof u.col === 'number' && typeof u.value === 'string');
+            }
 
             case 'updateHeader':
                 return this.validateHeaderUpdateData(message.data);
@@ -693,6 +704,29 @@ export class WebviewManager {
             uri: uri.toString(), // Convert URI to string
             panelId: actualPanelId
         });
+    }
+
+    /**
+     * Handle bulk cell update
+     */
+    private async handleBulkUpdateCells(data: { updates: Array<{ row: number; col: number; value: string }>; tableIndex?: number }, panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
+        console.log('🔧 WebviewManager: Bulk cell update received from React:');
+        console.log('📦 Raw React Data:', JSON.stringify(data, null, 2));
+        console.log('📊 Bulk update tableIndex from React:', data.tableIndex);
+
+        const actualPanelId = this.findPanelId(panel);
+
+        const commandData = {
+            uri: uri.toString(),
+            panelId: actualPanelId,
+            updates: data.updates,
+            tableIndex: data.tableIndex
+        };
+
+        console.log('📤 Sending bulk command data to Extension:', JSON.stringify(commandData, null, 2));
+
+        // Emit custom event that can be handled by the extension
+        vscode.commands.executeCommand('markdownTableEditor.internal.bulkUpdateCells', commandData);
     }
 
     /**

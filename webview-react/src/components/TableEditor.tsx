@@ -280,9 +280,54 @@ const TableEditor: React.FC<TableEditorProps> = ({
   }, [copyToClipboard, currentTableData, editorState.selectedCells, editorState.selectionRange])
 
   const handlePaste = useCallback(async () => {
+    console.log('🔍 handlePaste called')
+    console.log('🔍 currentEditingCell:', editorState.currentEditingCell)
+    console.log('🔍 selectionRange:', editorState.selectionRange)
+    
     const pastedData = await pasteFromClipboard(editorState.currentEditingCell)
+    console.log('🔍 pastedData:', pastedData)
+    
+    // セルが選択されていない場合のフォールバック処理
+    if (!editorState.selectionRange) {
+      console.log('🔍 No selection range - setting up fallback selection')
+      const startPos = editorState.currentEditingCell || { row: 0, col: 0 }
+      selectCell(startPos.row, startPos.col)
+      
+      // 選択が設定されるまで少し待ってから再試行
+      setTimeout(() => {
+        if (pastedData) {
+          handlePaste()
+        }
+      }, 50)
+      return
+    }
+    
     if (pastedData && editorState.selectionRange) {
       const { start } = editorState.selectionRange
+      
+      // ペーストデータのサイズを計算
+      const pasteRows = pastedData.length
+      const pasteCols = pastedData[0]?.length || 0
+      const targetEndRow = start.row + pasteRows - 1
+      const targetEndCol = start.col + pasteCols - 1
+      
+      // 必要な行数と列数を計算
+      const currentRowCount = currentTableData.rows.length
+      const currentColCount = currentTableData.headers.length
+      const neededRows = Math.max(0, targetEndRow + 1 - currentRowCount)
+      const neededCols = Math.max(0, targetEndCol + 1 - currentColCount)
+      
+      console.log('🔍 Paste info:', { pasteRows, pasteCols, neededRows, neededCols })
+      
+      // 不足している列を追加
+      for (let i = 0; i < neededCols; i++) {
+        addColumn()
+      }
+      
+      // 不足している行を追加
+      for (let i = 0; i < neededRows; i++) {
+        addRow()
+      }
       
       // 一括更新用のデータを準備
       const updates: Array<{ row: number; col: number; value: string }> = []
@@ -292,12 +337,14 @@ const TableEditor: React.FC<TableEditorProps> = ({
           const targetRow = start.row + rowOffset
           const targetCol = start.col + colOffset
           
-          if (targetRow >= 0 && targetRow < currentTableData.rows.length &&
-              targetCol >= 0 && targetCol < currentTableData.headers.length) {
+          // 範囲外チェックを削除（テーブルを拡張しているため）
+          if (targetRow >= 0 && targetCol >= 0) {
             updates.push({ row: targetRow, col: targetCol, value: cellValue })
           }
         })
       })
+      
+      console.log('🔍 Updates to apply:', updates)
       
       // 一括更新を実行
       if (updates.length > 0) {
@@ -308,13 +355,22 @@ const TableEditor: React.FC<TableEditorProps> = ({
           command: 'bulkUpdateCells',
           data: { updates, tableIndex: currentTableIndex }
         })
+        
+        // テーブル拡張も通知
+        if (neededRows > 0 || neededCols > 0) {
+          updateStatus('success', `クリップボードからペーストしました（${neededRows > 0 ? `${neededRows}行` : ''}${neededRows > 0 && neededCols > 0 ? '、' : ''}${neededCols > 0 ? `${neededCols}列` : ''}を自動追加）`)
+        } else {
+          updateStatus('success', 'クリップボードからペーストしました')
+        }
       }
-      
-      updateStatus('success', 'クリップボードからペーストしました')
+    } else if (!pastedData) {
+      console.log('🔍 No pasted data received')
+      updateStatus('error', 'クリップボードにデータがありません')
     } else {
+      console.log('🔍 Paste failed for unknown reason')
       updateStatus('error', 'ペーストに失敗しました')
     }
-  }, [pasteFromClipboard, editorState, currentTableData, updateCells, onSendMessage, updateStatus])
+  }, [pasteFromClipboard, editorState, currentTableData, updateCells, addColumn, addRow, onSendMessage, updateStatus, currentTableIndex, selectCell])
 
   const handleCut = useCallback(async () => {
     const success = await copyToClipboard(
