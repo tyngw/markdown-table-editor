@@ -18,9 +18,6 @@ interface TableBodyProps {
   getDragProps?: (type: 'row' | 'column', index: number) => any
   getDropProps?: (type: 'row' | 'column', index: number) => any
   selectedRows?: Set<number>
-  virtualization?:
-    | { enabled: false }
-    | { enabled: true; startIndex: number; endIndex: number; topPadding: number; bottomPadding: number }
 }
 
 const TableBody: React.FC<TableBodyProps> = ({
@@ -34,12 +31,9 @@ const TableBody: React.FC<TableBodyProps> = ({
   onShowRowContextMenu,
   getDragProps,
   getDropProps,
-  selectedRows,
-  virtualization
+  selectedRows
 }) => {
   const savedHeightsRef = useRef<Map<string, { original: number; maxOther: number }>>(new Map())
-  const v = virtualization && virtualization.enabled ? virtualization : null
-  const visibleRows = v ? rows.slice(v.startIndex, v.endIndex) : rows
 
   const handleCellMouseDown = useCallback((row: number, col: number, event: React.MouseEvent) => {
     if ((event.target as HTMLElement).classList.contains('cell-input')) {
@@ -148,13 +142,7 @@ const TableBody: React.FC<TableBodyProps> = ({
 
   return (
     <tbody>
-      {v && v.topPadding > 0 && (
-        <tr className="spacer-row top" aria-hidden="true">
-          <td colSpan={headers.length + 1} style={{ height: v.topPadding }} />
-        </tr>
-      )}
-      {visibleRows.map((row, visIndex) => {
-        const rowIndex = v ? v.startIndex + visIndex : visIndex
+      {rows.map((row, rowIndex) => {
         return (
         <tr key={rowIndex} data-row={rowIndex}>
           <td 
@@ -235,11 +223,6 @@ const TableBody: React.FC<TableBodyProps> = ({
         </tr>
         )
       })}
-      {v && v.bottomPadding > 0 && (
-        <tr className="spacer-row bottom" aria-hidden="true">
-          <td colSpan={headers.length + 1} style={{ height: v.bottomPadding }} />
-        </tr>
-      )}
     </tbody>
   )
 }

@@ -5,6 +5,11 @@ All notable changes to the Markdown Table Editor extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.11] - 2025-09-15
+
+### Fixed
+- **仮想スクロールの削除**: 0.7.8で導入された仮想スクロール機能を削除し、従来のシンプルなレンダリング方式に戻しました
+
 ## [0.7.10] - 2025-09-15
 
 ### Fixed
