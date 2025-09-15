@@ -150,7 +150,29 @@ function AppContent() {
 
   // 開発用: VSCode外でテストする場合のサンプルデータ（DEV ビルドのみ）
   if (import.meta.env?.DEV && typeof window !== 'undefined' && !(window as any).acquireVsCodeApi && allTables.length === 0) {
-      // プロダクション環境では小さなサンプルデータのみ提供
+      // 仮想スクロールをテストするため、大量のデータを含むサンプルテーブルを作成
+      const generateLargeTable = (rowCount: number) => {
+        const headers = ['ID', 'Name', 'Email', 'Department', 'Salary', 'Join Date', 'Status', 'Notes']
+        const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations']
+        const statuses = ['Active', 'Inactive', 'On Leave', 'Probation']
+        const rows: string[][] = []
+        
+        for (let i = 1; i <= rowCount; i++) {
+          const row = [
+            i.toString().padStart(4, '0'),
+            `Employee ${i}`,
+            `emp${i}@company.com`,
+            departments[i % departments.length],
+            `$${(30000 + (i % 100) * 1000).toLocaleString()}`,
+            `202${(i % 4)}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+            statuses[i % statuses.length],
+            `Notes for employee ${i}. This is a longer text to test cell content rendering.`
+          ]
+          rows.push(row)
+        }
+        return { headers, rows }
+      }
+      
       const testTables: TableData[] = [
         {
           headers: ['Name', 'Age', 'City'],
@@ -159,7 +181,9 @@ function AppContent() {
             ['Bob', '30', 'Osaka'],
             ['Charlie', '35', 'Kyoto']
           ]
-        }
+        },
+        generateLargeTable(150), // 仮想スクロールをテストするため150行のテーブル
+        generateLargeTable(50)   // 比較用の50行テーブル
       ]
       
       setAllTables(testTables)

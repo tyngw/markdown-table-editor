@@ -8,6 +8,7 @@ import { useDragDrop } from '../hooks/useDragDrop'
 import { useStatus } from '../contexts/StatusContext'
 import TableHeader from './TableHeader'
 import TableBody from './TableBody'
+import VirtualizedTableBody from './VirtualizedTableBody'
 import ContextMenu, { ContextMenuState } from './ContextMenu'
 
 interface TableEditorProps {
@@ -245,42 +246,83 @@ const TableEditor: React.FC<TableEditorProps> = ({
     onSetSelectionAnchor: setSelectionAnchor
   })
 
+  // 仮想スクロールを使用するかの判定（行数が多い場合に有効化）
+  const useVirtualScroll = displayedTableData.rows.length > 100
+
   return (
     <div id="table-content">
       <div className="table-container">
-        <table className="table-editor">
-          <TableHeader
-            headers={displayedTableData.headers}
-            columnWidths={editorState.columnWidths}
-            sortState={editorState.sortState}
-            onHeaderUpdate={handleHeaderUpdate}
-            onSort={handleSort}
-            onColumnResize={setColumnWidth}
-            onAddColumn={handleAddColumn}
-            onDeleteColumn={deleteColumn}
-            onSelectAll={selectAll}
-            onColumnSelect={handleColumnSelect}
-            onShowColumnContextMenu={(e, i) => setContextMenuState({ type: 'column', index: i, position: { x: e.clientX, y: e.clientY } })}
-            getDragProps={getDragProps}
-            getDropProps={getDropProps}
-            selectedCols={selectedCols}
-          />
-          <TableBody
-            headers={displayedTableData.headers}
-            rows={displayedTableData.rows}
-            editorState={editorState}
-            onCellUpdate={handleCellUpdate}
-            onCellSelect={selectCell}
-            onCellEdit={setCurrentEditingCell}
-            onAddRow={addRow}
-            onDeleteRow={deleteRow}
-            onRowSelect={handleRowSelect}
-            onShowRowContextMenu={(e, i) => setContextMenuState({ type: 'row', index: i, position: { x: e.clientX, y: e.clientY } })}
-            getDragProps={getDragProps}
-            getDropProps={getDropProps}
-            selectedRows={selectedRows}
-          />
-        </table>
+        {useVirtualScroll ? (
+          <div className="virtual-table">
+            <table className="table-editor table-header-only">
+              <TableHeader
+                headers={displayedTableData.headers}
+                columnWidths={editorState.columnWidths}
+                sortState={editorState.sortState}
+                onHeaderUpdate={handleHeaderUpdate}
+                onSort={handleSort}
+                onColumnResize={setColumnWidth}
+                onAddColumn={handleAddColumn}
+                onDeleteColumn={deleteColumn}
+                onSelectAll={selectAll}
+                onColumnSelect={handleColumnSelect}
+                onShowColumnContextMenu={(e, i) => setContextMenuState({ type: 'column', index: i, position: { x: e.clientX, y: e.clientY } })}
+                getDragProps={getDragProps}
+                getDropProps={getDropProps}
+                selectedCols={selectedCols}
+              />
+            </table>
+            <VirtualizedTableBody
+              headers={displayedTableData.headers}
+              rows={displayedTableData.rows}
+              editorState={editorState}
+              onCellUpdate={handleCellUpdate}
+              onCellSelect={selectCell}
+              onCellEdit={setCurrentEditingCell}
+              onAddRow={addRow}
+              onDeleteRow={deleteRow}
+              onRowSelect={handleRowSelect}
+              onShowRowContextMenu={(e, i) => setContextMenuState({ type: 'row', index: i, position: { x: e.clientX, y: e.clientY } })}
+              getDragProps={getDragProps}
+              getDropProps={getDropProps}
+              selectedRows={selectedRows}
+            />
+          </div>
+        ) : (
+          <table className="table-editor">
+            <TableHeader
+              headers={displayedTableData.headers}
+              columnWidths={editorState.columnWidths}
+              sortState={editorState.sortState}
+              onHeaderUpdate={handleHeaderUpdate}
+              onSort={handleSort}
+              onColumnResize={setColumnWidth}
+              onAddColumn={handleAddColumn}
+              onDeleteColumn={deleteColumn}
+              onSelectAll={selectAll}
+              onColumnSelect={handleColumnSelect}
+              onShowColumnContextMenu={(e, i) => setContextMenuState({ type: 'column', index: i, position: { x: e.clientX, y: e.clientY } })}
+              getDragProps={getDragProps}
+              getDropProps={getDropProps}
+              selectedCols={selectedCols}
+            />
+            <TableBody
+              headers={displayedTableData.headers}
+              rows={displayedTableData.rows}
+              editorState={editorState}
+              onCellUpdate={handleCellUpdate}
+              onCellSelect={selectCell}
+              onCellEdit={setCurrentEditingCell}
+              onAddRow={addRow}
+              onDeleteRow={deleteRow}
+              onRowSelect={handleRowSelect}
+              onShowRowContextMenu={(e, i) => setContextMenuState({ type: 'row', index: i, position: { x: e.clientX, y: e.clientY } })}
+              getDragProps={getDragProps}
+              getDropProps={getDropProps}
+              selectedRows={selectedRows}
+            />
+          </table>
+        )}
       </div>
 
       <div className="export-actions">
