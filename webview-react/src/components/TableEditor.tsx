@@ -8,7 +8,6 @@ import { useDragDrop } from '../hooks/useDragDrop'
 import { useStatus } from '../contexts/StatusContext'
 import TableHeader from './TableHeader'
 import TableBody from './TableBody'
-import VirtualizedTableBody from './VirtualizedTableBody'
 import ContextMenu, { ContextMenuState } from './ContextMenu'
 
 interface TableEditorProps {
@@ -272,7 +271,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
                 selectedCols={selectedCols}
               />
             </table>
-            <VirtualizedTableBody
+            <TableBody
               headers={displayedTableData.headers}
               rows={displayedTableData.rows}
               editorState={editorState}

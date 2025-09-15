@@ -265,7 +265,7 @@ export class WebviewManager {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
-                    vscode.Uri.joinPath(this.context.extensionUri, 'out', 'webview'),
+                    vscode.Uri.joinPath(this.context.extensionUri, 'webview-dist'),
                     vscode.Uri.joinPath(this.context.extensionUri, 'webview')
                 ]
             }
@@ -277,7 +277,7 @@ export class WebviewManager {
         console.log('Webview panel created, setting HTML content...');
 
         // Use React build for webview
-        const reactBuildPath = vscode.Uri.joinPath(this.context.extensionUri, 'out', 'webview');
+        const reactBuildPath = vscode.Uri.joinPath(this.context.extensionUri, 'webview-dist');
         
         // Check if React build exists, fallback to original if not
         const indexHtmlPath = vscode.Uri.joinPath(reactBuildPath, 'index.html');
@@ -310,7 +310,7 @@ export class WebviewManager {
             console.log('Asset path replacements made:', originalHtml !== html);
             
             // Update CSP to allow React and webview resources
-            const cspContent = `default-src 'none'; style-src 'unsafe-inline' ${panel.webview.cspSource}; script-src 'unsafe-inline' 'unsafe-eval' ${panel.webview.cspSource}; img-src ${panel.webview.cspSource} https: data:; font-src ${panel.webview.cspSource} https:;`;
+            const cspContent = `default-src 'none', style-src 'unsafe-inline' ${panel.webview.cspSource}, script-src 'unsafe-inline' 'unsafe-eval' ${panel.webview.cspSource}, img-src ${panel.webview.cspSource} https: data:, font-src ${panel.webview.cspSource} https:`;
             
             if (html.includes('Content-Security-Policy')) {
                 html = html.replace(
