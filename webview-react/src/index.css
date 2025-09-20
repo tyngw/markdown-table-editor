@@ -614,7 +614,7 @@ textarea.cell-input {
 
 textarea.cell-input[data-multiline="true"] {
     overflow-y: auto;
-    max-height: 200px;
+    /* 高さは行最大に固定されるため、max-height は不要 */
     resize: none;
 }
 

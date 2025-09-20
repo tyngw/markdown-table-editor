@@ -265,6 +265,7 @@ export class WebviewManager {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
+                    vscode.Uri.joinPath(this.context.extensionUri, 'webview-dist'),
                     vscode.Uri.joinPath(this.context.extensionUri, 'out', 'webview'),
                     vscode.Uri.joinPath(this.context.extensionUri, 'webview')
                 ]
@@ -277,7 +278,7 @@ export class WebviewManager {
         console.log('Webview panel created, setting HTML content...');
 
         // Use React build for webview
-        const reactBuildPath = vscode.Uri.joinPath(this.context.extensionUri, 'out', 'webview');
+        const reactBuildPath = vscode.Uri.joinPath(this.context.extensionUri, 'webview-dist');
         
         // Check if React build exists, fallback to original if not
         const indexHtmlPath = vscode.Uri.joinPath(reactBuildPath, 'index.html');
@@ -310,22 +311,62 @@ export class WebviewManager {
             console.log('Asset path replacements made:', originalHtml !== html);
             
             // Update CSP to allow React and webview resources
-            const cspContent = `default-src 'none'; style-src 'unsafe-inline' ${panel.webview.cspSource}; script-src 'unsafe-inline' 'unsafe-eval' ${panel.webview.cspSource}; img-src ${panel.webview.cspSource} https: data:; font-src ${panel.webview.cspSource} https:;`;
+            // Note: Do NOT add "https://file+.vscode-resource.vscode-cdn.net". The '+' is encoded in actual host (file%2B...),
+            // and hardcoding it causes CSP warnings. Use only panel.webview.cspSource as recommended by VS Code docs.
+            const cspContent = `default-src 'none'; style-src 'unsafe-inline' ${panel.webview.cspSource}; script-src 'unsafe-inline' 'unsafe-eval' ${panel.webview.cspSource}; img-src ${panel.webview.cspSource} https: data:; font-src ${panel.webview.cspSource} https:`;
             
-            if (html.includes('Content-Security-Policy')) {
+            // 最初に既存の全てのCSPメタタグを削除
+            html = html.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/gi, '');
+            
+            // <head>内の最初の部分（charsetとviewportの後）に新しいCSPメタタグを挿入
+            const headMatch = html.match(/(<head[^>]*>[\s\S]*?<meta\s+name="viewport"[^>]*>)/i);
+            if (headMatch) {
                 html = html.replace(
-                    /content="[^"]*"/,
-                    `content="${cspContent}"`
+                    headMatch[0],
+                    `${headMatch[0]}\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
                 );
             } else {
+                // viewport metaがない場合は、<head>タグの直後に挿入
                 html = html.replace(
-                    '<head>',
-                    `<head>\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
+                    /(<head[^>]*>)/i,
+                    `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
                 );
+            }
+            
+            // ログでCSP処理結果を確認
+            console.log('CSP processing completed');
+            console.log('HTML contains CSP meta tag:', html.includes('Content-Security-Policy'));
+            
+            // HTML構造の妥当性チェック（強化版）
+            const headStartIndex = html.indexOf('<head>');
+            const headEndIndex = html.indexOf('</head>');
+            const cspIndex = html.indexOf('Content-Security-Policy');
+            
+            console.log('HTML structure analysis:');
+            console.log('Head start index:', headStartIndex);
+            console.log('Head end index:', headEndIndex);  
+            console.log('CSP meta index:', cspIndex);
+            console.log('CSP is before head end:', cspIndex < headEndIndex && cspIndex > headStartIndex);
+            
+            // CSPメタタグが<head>外にある場合の最終修正
+            if (cspIndex >= 0 && (cspIndex < headStartIndex || cspIndex > headEndIndex)) {
+                console.warn('CSP meta tag is not properly positioned within <head> element - applying final fix');
+                
+                // 全てのCSPメタタグを削除
+                html = html.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/gi, '');
+                
+                // <head>の直後に確実に挿入
+                html = html.replace(
+                    /(<head[^>]*>)/i,
+                    `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
+                );
+                
+                console.log('Final CSP fix applied');
             }
             
             console.log('Using React build for webview');
             console.log('Modified HTML length:', html.length);
+            console.log('Final HTML being sent to webview:', html);
         } catch (error) {
             console.error('Failed to load React build:', error);
             const errorMessage = error instanceof Error ? error.message : String(error);
