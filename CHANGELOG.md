@@ -5,6 +5,43 @@ All notable changes to the Markdown Table Editor extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.7.18] - 2025-09-20
+
+### Fixed / React Webview - 編集モードのテキストボックス高さを仕様に準拠
+- 仕様「編集モードのテキストボックスは、その行内の最大セル高さに合わせる」を厳密に実装
+  - `TableBody` で行内のセル高さを測定し、対象セルに `data-row-max-height` として付与（実装上は `dataset.rowMaxHeight`）
+  - `CellEditor` は content の `scrollHeight` には合わせず、行内最大高さ（rowMaxHeight）に固定
+  - コンテンツがそれを超える場合は `data-multiline` を付与してスクロールを許可
+  - 編集中の `<td>` にも `min-height` を設定し、絶対配置のテキストエリアで行高さが縮まないように調整
+
+### Tests
+- React 側 Jest に編集モード高さの単体テストを追加（`EditModeTextboxSize.test.tsx`）
+
+
+## [0.7.17] - 2025-09-20
+
+### Fixed / React Webview - 編集モードの高さ計測
+- キーボード起点（Enter / F2 / 文字入力など）で編集開始した場合にも、行全体の高さ計測が必ず実行されるように修正
+  - `TableBody` に `useEffect` を追加し、`editorState.currentEditingCell` の変更をフックして行高さを測定
+  - 測定結果をセルの `dataset.originalHeight` / `dataset.maxOtherHeight` に反映し、`textarea` へ `heightUpdate` カスタムイベントで通知
+  - これにより、`maxOtherHeight` が 32 固定になったり、`originalHeight` が 0 になるケースを防止
+- 編集の確定/キャンセル時に、内部の保存データ（`savedHeightsRef`）を確実にクリーンアップするよう改善
+
+### Notes
+- 仕様変更はありません。すべての編集開始経路で高さ計測が確実に行われ、テキストボックス高さが行内の最大セル高さに追随します。
+
+## [0.7.16] - 2025-09-20
+
+### Improved / Build
+- デバッグビルド時に console.log を保持できるようにビルド設定を拡張
+  - Vite 設定で環境変数 `MTE_KEEP_CONSOLE=1` を与えた場合に `drop_console` を無効化
+  - ルート `package.json` の `compile` スクリプトを条件分岐し、`MTE_KEEP_CONSOLE=1` の場合は `build-webview:debug` を実行
+  - これにより `MTE_KEEP_CONSOLE=1 npx vsce package` でデバッグ用の VSIX を作成可能
+
+### Notes
+- 仕様変更はありません（挙動は従来どおり）。開発時のデバッグログ確認を容易にするためのビルド改善です。
+
 ## [0.7.15] - 2025-09-20
 
 ### Fixed

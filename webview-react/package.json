@@ -24,6 +24,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:debug": "MTE_KEEP_CONSOLE=1 vite build",
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
