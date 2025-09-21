@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useLayoutEffect } from 'react'
+import React, { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react'
 
 export interface CellEditorProps {
   value: string
@@ -24,6 +24,9 @@ const CellEditor: React.FC<CellEditorProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [currentValue, setCurrentValue] = useState(value)
+  // シンプルなローカルUndo/Redoスタック
+  const [history, setHistory] = useState<string[]>([value])
+  const [redoStack, setRedoStack] = useState<string[]>([])
   const [isComposing, setIsComposing] = useState(false)
   // TableBody からの heightUpdate で受け取った実測値を保持
   const measuredRef = useRef<{ original?: number; rowMax?: number }>({})
@@ -195,9 +198,67 @@ const CellEditor: React.FC<CellEditorProps> = ({
     }
   }, [originalHeight, rowMaxHeight, isComposing, _rowIndex, _colIndex])
 
+  // 値が外部から変化した場合（通常は編集開始時のみ）、履歴を初期化
+  useEffect(() => {
+    setCurrentValue(value)
+    setHistory([value])
+    setRedoStack([])
+  }, [value])
+
+  const pushHistory = useCallback((next: string) => {
+    setHistory((prev) => {
+      const last = prev[prev.length - 1]
+      if (last === next) return prev
+      return [...prev, next]
+    })
+    setRedoStack((rs) => (rs.length ? [] : rs))
+  }, [])
+
+  const doUndo = useCallback(() => {
+    setHistory((prev) => {
+      if (prev.length <= 1) return prev
+      const last = prev[prev.length - 1]
+      const nextHistory = prev.slice(0, -1)
+      const prevValue = nextHistory[nextHistory.length - 1]
+      setCurrentValue(prevValue)
+      setRedoStack((rs) => [...rs, last])
+      return nextHistory
+    })
+  }, [])
+
+  const doRedo = useCallback(() => {
+    setRedoStack((rs) => {
+      if (rs.length === 0) return rs
+      const last = rs[rs.length - 1]
+      setHistory((h) => [...h, last])
+      setCurrentValue(last)
+      return rs.slice(0, -1)
+    })
+  }, [])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
       return;
+    }
+    // ローカルUndo/Redo（VSCodeへの伝播を防ぐ）
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase()
+      if (key === 'z') {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.shiftKey) {
+          doRedo()
+        } else {
+          doUndo()
+        }
+        return
+      }
+      if (key === 'y') {
+        e.preventDefault()
+        e.stopPropagation()
+        doRedo()
+        return
+      }
     }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
@@ -240,10 +301,23 @@ const CellEditor: React.FC<CellEditorProps> = ({
       ref={textareaRef}
       className="cell-input"
       value={currentValue}
-      onChange={(e) => setCurrentValue(e.target.value)}
+      onChange={(e) => {
+        const next = e.target.value
+        setCurrentValue(next)
+        if (!isComposing) {
+          pushHistory(next)
+        }
+      }}
       onKeyDown={handleKeyDown}
       onCompositionStart={handleCompositionStart}
-      onCompositionEnd={handleCompositionEnd}
+      onCompositionEnd={() => {
+        handleCompositionEnd()
+        // 日本語入力確定などのタイミングで履歴に反映
+        // setStateは非同期なので、次のtickで履歴に積む
+        setTimeout(() => {
+          pushHistory(textareaRef.current?.value ?? '')
+        }, 0)
+      }}
       onBlur={handleBlur}
       style={{
     border: 'none',

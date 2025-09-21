@@ -107,6 +107,23 @@ suite('Webview-Extension Interface Tests', () => {
     }
 
     suite('Message Validation Tests', () => {
+        test('should validate valid undo message', () => {
+            const message: WebviewMessage = {
+                command: 'undo'
+            };
+            const manager = webviewManager as any;
+            const isValid = manager.validateMessage(message);
+            assert.strictEqual(isValid, true, 'Valid undo message should pass validation');
+        });
+
+        test('should validate valid redo message', () => {
+            const message: WebviewMessage = {
+                command: 'redo'
+            };
+            const manager = webviewManager as any;
+            const isValid = manager.validateMessage(message);
+            assert.strictEqual(isValid, true, 'Valid redo message should pass validation');
+        });
         test('should validate valid requestTableData message', () => {
             const message: WebviewMessage = {
                 command: 'requestTableData'

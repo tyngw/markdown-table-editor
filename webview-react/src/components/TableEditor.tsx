@@ -273,7 +273,9 @@ const TableEditor: React.FC<TableEditorProps> = ({
     onCut: handleCut,
     onClearCells: handleClearCells,
     onSelectAll: selectAll,
-    onSetSelectionAnchor: setSelectionAnchor
+    onSetSelectionAnchor: setSelectionAnchor,
+    onUndo: () => onSendMessage({ command: 'undo' }),
+    onRedo: () => onSendMessage({ command: 'redo' })
   })
 
   return (
