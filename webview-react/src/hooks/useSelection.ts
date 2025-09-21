@@ -42,6 +42,7 @@ export function useSelection({ tableRowCount, tableColCount }: UseSelectionOptio
 
   // 初期選択状態を設定（A1セル）
   const initializeSelection = useCallback(() => {
+    console.log('[MTE][useSelection] initializeSelection called. tableRowCount=', tableRowCount, 'tableColCount=', tableColCount)
     if (tableRowCount > 0 && tableColCount > 0) {
       const firstCell = { row: 0, col: 0 }
       setSelectedCells(new Set(['0-0']))

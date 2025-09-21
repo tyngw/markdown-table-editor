@@ -2,7 +2,7 @@
   "name": "markdown-table-editor",
   "displayName": "Markdown Table Editor",
   "description": "Edit Markdown tables with a spreadsheet-like interface",
-  "version": "0.8.0",
+  "version": "0.8.3",
   "publisher": "tyngw",
   "repository": {
     "type": "git",
@@ -73,7 +73,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./ && npm run build-webview:conditional && npm run copy-mock",
-    "build-webview": "cd webview-react && npm install && npm run build && cd .. && mkdir -p out/webview && cp -r webview-dist/* out/webview/ && cp -r webview/js out/webview/js || true && cp -f webview/tableEditor.html out/webview/tableEditor.html || true",
+    "build-webview": "cd webview-react && npm install && npm run build && cd .. && mkdir -p out/webview && cp -r webview-dist/* out/webview/",
     "build-webview:conditional": "sh -c 'if [ \"$MTE_KEEP_CONSOLE\" = \"1\" ] || [ \"$MTE_KEEP_CONSOLE\" = \"true\" ]; then npm run build-webview:debug; else npm run build-webview; fi'",
     "build-webview:debug": "cd webview-react && npm install && npm run build:debug && cd .. && mkdir -p out/webview && cp -r webview-dist/* out/webview/",
     "copy-webview": "cp -r webview out/",
