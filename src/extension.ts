@@ -4,6 +4,7 @@ import { TableDataManager, TableData } from './tableDataManager';
 import { MarkdownParser } from './markdownParser';
 import { getFileHandler } from './fileHandler';
 import { buildThemeVariablesCss, getInstalledColorThemes } from './themeUtils';
+import { UndoRedoManager } from './undoRedoManager';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Markdown Table Editor extension is now active!');
@@ -12,6 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
     const webviewManager = WebviewManager.getInstance(context);
     const markdownParser = new MarkdownParser();
     const fileHandler = getFileHandler();
+    const undoRedoManager = UndoRedoManager.getInstance();
 
     console.log('Managers initialized, registering commands...');
 
@@ -419,6 +421,10 @@ export function activate(context: vscode.ExtensionContext) {
             console.log('📋 Raw data:', JSON.stringify(data, null, 2));
             
             const { uri, panelId, row, col, value, tableIndex } = data;
+
+            // Save state before making changes for undo functionality
+            const uriObj = typeof uri === 'string' ? vscode.Uri.parse(uri) : uri;
+            await undoRedoManager.saveState(uriObj, `Update cell (${row}, ${col})`);
 
             // Get the URI string and panel ID to use for manager lookup
             let uriString: string;
