@@ -127,8 +127,8 @@ npm run dev
 - **Ctrl+V / Cmd+V**：セル内テキスト貼り付け
 - **Ctrl+X / Cmd+X**：セル内テキストカット
 - **Ctrl+A / Cmd+A**：セル内全選択
-- **Ctrl+Z / Cmd+Z**：セル内で元に戻す
-- **Ctrl+Y / Cmd+Y**：セル内でやり直し
+- **Ctrl+Z / Cmd+Z**：セル内で元に戻す（編集モード中）
+- **Ctrl+Y / Cmd+Y** または **Shift+Ctrl+Z / Shift+Cmd+Z**：セル内でやり直し（編集モード中）
 
 ### 列操作
 - **リサイズハンドルのダブルクリック**：内容に自動フィット

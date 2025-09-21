@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { buildThemeVariablesCss } from './themeUtils';
 
 export interface WebviewMessage {
-    command: 'requestTableData' | 'updateCell' | 'bulkUpdateCells' | 'updateHeader' | 'addRow' | 'deleteRows' | 'addColumn' | 'deleteColumns' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables';
+    command: 'requestTableData' | 'updateCell' | 'bulkUpdateCells' | 'updateHeader' | 'addRow' | 'deleteRows' | 'addColumn' | 'deleteColumns' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables' | 'undo' | 'redo';
     data?: any;
     timestamp?: number;
     responseTime?: number;
@@ -621,6 +621,14 @@ export class WebviewManager {
                     await this.handleRequestThemeVariables(panel);
                     break;
 
+                case 'undo':
+                    await this.handleUndo(panel, uri);
+                    break;
+
+                case 'redo':
+                    await this.handleRedo(panel, uri);
+                    break;
+
                 default:
                     console.warn('Unknown message command:', message.command);
                     this.sendError(panel, `Unknown command: ${message.command}`);
@@ -661,7 +669,7 @@ export class WebviewManager {
     public validateMessageCommand(message: any): boolean {
         const validCommands = [
             'requestTableData', 'updateCell', 'bulkUpdateCells', 'updateHeader', 'addRow', 'deleteRows',
-            'addColumn', 'deleteColumns', 'sort', 'moveRow', 'moveColumn', 'exportCSV', 'pong', 'switchTable', 'requestThemeVariables'
+            'addColumn', 'deleteColumns', 'sort', 'moveRow', 'moveColumn', 'exportCSV', 'pong', 'switchTable', 'requestThemeVariables', 'undo', 'redo'
         ];
 
         return validCommands.includes(message.command);
@@ -718,6 +726,10 @@ export class WebviewManager {
                 return this.validateSwitchTableData(message.data);
 
             case 'requestThemeVariables':
+                return true; // No data required
+
+            case 'undo':
+            case 'redo':
                 return true; // No data required
 
             default:
@@ -821,6 +833,40 @@ export class WebviewManager {
             uri: uri.toString(), // Convert URI to string
             panelId: actualPanelId
         });
+    }
+
+    /**
+     * Handle undo request from webview
+     */
+    private async handleUndo(panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
+        try {
+            // WebviewがアクティブだとUndoが効かないケースがあるため、対象ドキュメントへ一時的にフォーカス
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { preserveFocus: false, preview: true });
+            await vscode.commands.executeCommand('undo');
+        } catch (error) {
+            console.error('[MTE][Ext] Undo command failed:', error);
+        } finally {
+            // Webviewへフォーカスを戻し、データ同期
+            try { panel.reveal(panel.viewColumn, false); } catch {}
+            this.refreshPanelData(panel, uri);
+        }
+    }
+
+    /**
+     * Handle redo request from webview
+     */
+    private async handleRedo(panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
+        try {
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { preserveFocus: false, preview: true });
+            await vscode.commands.executeCommand('redo');
+        } catch (error) {
+            console.error('[MTE][Ext] Redo command failed:', error);
+        } finally {
+            try { panel.reveal(panel.viewColumn, false); } catch {}
+            this.refreshPanelData(panel, uri);
+        }
     }
 
     /**

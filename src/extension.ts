@@ -289,9 +289,10 @@ export function activate(context: vscode.ExtensionContext) {
             // Always re-read file to get all tables
             console.log('Reading fresh data from file for:', uriString, 'panel:', actualPanelId, forceRefresh ? '(forced refresh)' : '(request)');
 
-            // Read and parse the file
+            // Read and parse the current in-memory document (unsaved changes included)
             const fileUri = vscode.Uri.parse(uriString);
-            const content = await fileHandler.readMarkdownFile(fileUri);
+            const doc = await vscode.workspace.openTextDocument(fileUri);
+            const content = doc.getText();
             const ast = markdownParser.parseDocument(content);
             const tables = markdownParser.findTablesInDocument(ast);
 
@@ -355,8 +356,8 @@ export function activate(context: vscode.ExtensionContext) {
             console.log(`File changed: ${changedUri.toString()}, updating ${filePanels.size} panel(s)`);
 
             try {
-                // ファイルを再読み込みしてテーブルデータを更新
-                const content = await fileHandler.readMarkdownFile(changedUri);
+                // 変更イベントからインメモリの内容を取得（未保存変更を含む）
+                const content = event.document.getText();
                 const ast = markdownParser.parseDocument(content);
                 const tables = markdownParser.findTablesInDocument(ast);
 

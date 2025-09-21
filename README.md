@@ -134,8 +134,8 @@ This extension now robustly handles documents containing multiple tables and mix
 - **Ctrl+V / Cmd+V**: Paste text within cell
 - **Ctrl+X / Cmd+X**: Cut selected text within cell
 - **Ctrl+A / Cmd+A**: Select all text within cell
-- **Ctrl+Z / Cmd+Z**: Undo within cell
-- **Ctrl+Y / Cmd+Y**: Redo within cell
+- **Ctrl+Z / Cmd+Z**: Undo within cell (Editing mode)
+- **Ctrl+Y / Cmd+Y** or **Shift+Ctrl+Z / Shift+Cmd+Z**: Redo within cell (Editing mode)
 
 ### Column Operations
 - **Double-click** on column resize handle: Auto-fit column width to content

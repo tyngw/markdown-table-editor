@@ -14,6 +14,8 @@ interface KeyboardNavigationProps {
   onClearCells: () => void
   onSelectAll: () => void
   onSetSelectionAnchor: (position: CellPosition | null) => void
+  onUndo: () => void
+  onRedo: () => void
 }
 
 export function useKeyboardNavigation({
@@ -28,7 +30,9 @@ export function useKeyboardNavigation({
   onCut,
   onClearCells,
   onSelectAll,
-  onSetSelectionAnchor
+  onSetSelectionAnchor,
+  onUndo,
+  onRedo
 }: KeyboardNavigationProps) {
 
   // Helper function to check if a cell has content (for smart navigation)
@@ -250,6 +254,19 @@ export function useKeyboardNavigation({
     const { key, shiftKey, ctrlKey, metaKey } = event
     const cmdKey = ctrlKey || metaKey
 
+    // Undo/Redo（編集モード外ではVSCode側に委譲）
+    if (cmdKey && (key.toLowerCase() === 'z' || key.toLowerCase() === 'y')) {
+      event.preventDefault()
+      // Redo: Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y
+      const isRedo = (key.toLowerCase() === 'y') || (key.toLowerCase() === 'z' && shiftKey)
+      if (isRedo) {
+        onRedo()
+      } else {
+        onUndo()
+      }
+      return
+    }
+
     const scrollCellIntoView = (row: number, col: number) => {
       const container = document.querySelector('.table-container') as HTMLElement | null
       if (!container) return
@@ -459,7 +476,9 @@ export function useKeyboardNavigation({
     onCut,
     onClearCells,
     onSelectAll,
-    onSetSelectionAnchor
+    onSetSelectionAnchor,
+    onUndo,
+    onRedo
   ])
 
   // キーアップイベントハンドラー（Shiftキーのクリア用）
