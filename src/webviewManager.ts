@@ -3,6 +3,7 @@ import * as path from 'path';
 import { TableData } from './tableDataManager';
 import * as fs from 'fs';
 import { buildThemeVariablesCss } from './themeUtils';
+import { UndoRedoManager } from './undoRedoManager';
 
 export interface WebviewMessage {
     command: 'requestTableData' | 'updateCell' | 'bulkUpdateCells' | 'updateHeader' | 'addRow' | 'deleteRows' | 'addColumn' | 'deleteColumns' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables' | 'undo' | 'redo';
@@ -17,6 +18,7 @@ export class WebviewManager {
     private context: vscode.ExtensionContext;
     private connectionHealthMap: Map<string, { lastActivity: number; isHealthy: boolean }> = new Map();
     private healthCheckInterval: NodeJS.Timeout | null = null;
+    private undoRedoManager: UndoRedoManager;
     // Legacy webview modular scripts (for tests and backward compatibility)
     private readonly legacyScriptFiles: string[] = [
         'js/core.js',
@@ -64,6 +66,7 @@ export class WebviewManager {
 
     private constructor(context: vscode.ExtensionContext) {
         this.context = context;
+        this.undoRedoManager = UndoRedoManager.getInstance();
         this.startHealthMonitoring();
     }
 
@@ -836,81 +839,70 @@ export class WebviewManager {
     }
 
     /**
-     * Handle undo request from webview
+     * Handle undo request from webview - USING CUSTOM UNDO/REDO (NO FOCUS CHANGE!)
      */
     private async handleUndo(panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
         try {
-            // 既存のエディタを探す
-            const existingEditor = vscode.window.visibleTextEditors.find(
-                editor => editor.document.uri.toString() === uri.toString()
-            );
-
-            if (existingEditor) {
-                // 既存エディタがある場合はそちらをアクティブにする
-                console.log('[MTE][Ext] Using existing editor for undo');
-                await vscode.window.showTextDocument(existingEditor.document, {
-                    viewColumn: existingEditor.viewColumn,
-                    preserveFocus: false,
-                    preview: false // 既存エディタなのでpreviewにしない
-                });
+            console.log('[MTE][Ext] Executing custom undo (no focus change required)');
+            
+            // Log stats before undo
+            const statsBefore = this.undoRedoManager.getStats(uri);
+            console.log('[MTE][Ext] Before undo:', statsBefore);
+            
+            const success = await this.undoRedoManager.undo(uri);
+            
+            if (success) {
+                // Log stats after undo
+                const statsAfter = this.undoRedoManager.getStats(uri);
+                console.log('[MTE][Ext] After undo:', statsAfter);
+                
+                // Refresh panel data to reflect changes
+                this.refreshPanelData(panel, uri);
+                console.log('[MTE][Ext] Undo completed successfully');
             } else {
-                // 既存エディタがない場合は新しく開く（Webviewの隣のカラム）
-                console.log('[MTE][Ext] Opening document for undo in appropriate column');
-                const doc = await vscode.workspace.openTextDocument(uri);
-                const targetColumn = this.getAppropriateViewColumn(panel);
-                await vscode.window.showTextDocument(doc, {
-                    viewColumn: targetColumn,
-                    preserveFocus: false,
-                    preview: false // 一時的な操作なのでpreviewタブにしない
-                });
+                // Show warning in VSCode notification instead of webview error screen
+                vscode.window.showWarningMessage('No changes to undo');
             }
             
-            await vscode.commands.executeCommand('undo');
         } catch (error) {
             console.error('[MTE][Ext] Undo command failed:', error);
-        } finally {
-            // Webviewへフォーカスを戻し、データ同期
-            try { panel.reveal(panel.viewColumn, false); } catch {}
-            this.refreshPanelData(panel, uri);
+            const errorMessage = `Undo failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            // Show error in VSCode notification instead of webview error screen
+            vscode.window.showErrorMessage(errorMessage);
         }
     }
 
     /**
-     * Handle redo request from webview
+     * Handle redo request from webview - USING CUSTOM UNDO/REDO (NO FOCUS CHANGE!)
      */
     private async handleRedo(panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
         try {
-            // 既存のエディタを探す
-            const existingEditor = vscode.window.visibleTextEditors.find(
-                editor => editor.document.uri.toString() === uri.toString()
-            );
-
-            if (existingEditor) {
-                // 既存エディタがある場合はそちらをアクティブにする
-                console.log('[MTE][Ext] Using existing editor for redo');
-                await vscode.window.showTextDocument(existingEditor.document, {
-                    viewColumn: existingEditor.viewColumn,
-                    preserveFocus: false,
-                    preview: false // 既存エディタなのでpreviewにしない
-                });
+            console.log('[MTE][Ext] Executing custom redo (no focus change required)');
+            
+            // Log stats before redo
+            const statsBefore = this.undoRedoManager.getStats(uri);
+            console.log('[MTE][Ext] Before redo:', statsBefore);
+            
+            const success = await this.undoRedoManager.redo(uri);
+            
+            if (success) {
+                // Log stats after redo
+                const statsAfter = this.undoRedoManager.getStats(uri);
+                console.log('[MTE][Ext] After redo:', statsAfter);
+                
+                // Refresh panel data to reflect changes
+                this.refreshPanelData(panel, uri);
+                console.log('[MTE][Ext] Redo completed successfully');
             } else {
-                // 既存エディタがない場合は新しく開く（Webviewの隣のカラム）
-                console.log('[MTE][Ext] Opening document for redo in appropriate column');
-                const doc = await vscode.workspace.openTextDocument(uri);
-                const targetColumn = this.getAppropriateViewColumn(panel);
-                await vscode.window.showTextDocument(doc, {
-                    viewColumn: targetColumn,
-                    preserveFocus: false,
-                    preview: false // 一時的な操作なのでpreviewタブにしない
-                });
+                // Show warning in VSCode notification instead of webview error screen
+                vscode.window.showWarningMessage('No changes to redo');
             }
             
-            await vscode.commands.executeCommand('redo');
         } catch (error) {
             console.error('[MTE][Ext] Redo command failed:', error);
-        } finally {
-            try { panel.reveal(panel.viewColumn, false); } catch {}
-            this.refreshPanelData(panel, uri);
+            const errorMessage = `Redo failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            // Show error in VSCode notification instead of webview error screen
+            vscode.window.showErrorMessage(errorMessage);
         }
     }
 
@@ -921,6 +913,9 @@ export class WebviewManager {
         console.log('🔧 WebviewManager: Bulk cell update received from React:');
         console.log('📦 Raw React Data:', JSON.stringify(data, null, 2));
         console.log('📊 Bulk update tableIndex from React:', data.tableIndex);
+
+        // Save state before making changes for undo functionality
+        await this.undoRedoManager.saveState(uri, 'Bulk cell update');
 
         const actualPanelId = this.findPanelId(panel);
 
@@ -1549,6 +1544,28 @@ export class WebviewManager {
             command: 'updateTableData',
             data: tableData
         });
+    }
+
+    /**
+     * Apply table state without window switching by directly invoking file update
+     */
+    private async applyTableState(markdownContent: string, tableIndex: number, uri: vscode.Uri, panel: vscode.WebviewPanel): Promise<void> {
+        try {
+            // Execute the internal file update command directly
+            vscode.commands.executeCommand('markdownTableEditor.internal.directFileUpdate', {
+                uri: uri.toString(),
+                panelId: this.findPanelId(panel),
+                markdownContent,
+                tableIndex
+            });
+            
+            // Refresh panel data to reflect the changes
+            this.refreshPanelData(panel, uri);
+            
+        } catch (error) {
+            console.error('[MTE][Ext] Failed to apply table state:', error);
+            throw error;
+        }
     }
 
     /**
