@@ -14,6 +14,10 @@ export function useTableEditor(
   const [tableData, setTableData] = useState<TableData>(initialData)
   const [currentEditingCell, setCurrentEditingCell] = useState<CellPosition | null>(null)
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>({})
+  // 内部由来のデータ更新（セル編集・行列操作など）を検知するためのフラグ
+  const internalUpdateRef = useRef(false)
+  const internalUpdateTsRef = useRef<number>(0)
+  const internalUpdateClearTimerRef = useRef<number | undefined>(undefined as any)
 
   const selection = useSelection({
     tableRowCount: tableData.rows.length,
@@ -114,24 +118,82 @@ export function useTableEditor(
   }, [resetSortState, selection.initializeSelection])
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 Resetting table state due to initialData change')
-    }
+    // initialData の変更に伴う状態同期
+    const now = Date.now()
+    const echoWindowMs = 800
+    const withinEchoWindow = internalUpdateTsRef.current > 0 && (now - internalUpdateTsRef.current) <= echoWindowMs
+    const wasInternal = internalUpdateRef.current || withinEchoWindow
+
+    // 現在の形状と新しい形状の差分（行数・列数の比較）
+    const prevRowCount = tableData?.rows?.length ?? 0
+    const prevColCount = tableData?.headers?.length ?? 0
+    const nextRowCount = initialData?.rows?.length ?? 0
+    const nextColCount = initialData?.headers?.length ?? 0
+    const shapeChanged = prevRowCount !== nextRowCount || prevColCount !== nextColCount
+
+    console.log('[MTE][useTableEditor] initialData changed.', {
+      internalUpdateRef: internalUpdateRef.current,
+      withinEchoWindow,
+      wasInternal,
+      currentEditingCell,
+      initializeSelectionOnDataChange: options?.initializeSelectionOnDataChange,
+      prevRowCount,
+      prevColCount,
+      nextRowCount,
+      nextColCount,
+      shapeChanged
+    })
+
     setTableData(initialData)
     setCurrentEditingCell(null)
     setColumnWidths({})
 
-    // ソート状態は常にリセット
-    stableFunctions.current.resetSortState()
-    // 初期選択は UI 側の都合でのみ実行（テストでは初期選択なしを期待）
-    if (options?.initializeSelectionOnDataChange) {
-      stableFunctions.current.initializeSelection()
+    if (wasInternal) {
+      console.log('[MTE][useTableEditor] Skipping sort reset and selection initialization due to internal or echo update')
+      // internal フラグはタイムウィンドウ経過後にクリア（次の内部操作で更新）
+      return
+    }
+
+    // 外部からのデータ更新時: 形状変化がある場合のみソートリセット
+    if (shapeChanged) {
+      console.log('[MTE][useTableEditor] External update with shape change. Resetting sort state')
+      stableFunctions.current.resetSortState()
     } else {
-      // 明示的に選択をクリアする必要があるケースは useSelection 側で担保済み
+      console.log('[MTE][useTableEditor] External update without shape change. Preserving sort state')
+    }
+
+    // 選択の初期化は「選択が既にあり、形状が変わらない場合」は抑止して維持
+    const hasSelection = !!selection.selectionState.selectionRange && selection.selectionState.selectedCells.size > 0
+    const isEditingCell = currentEditingCell !== null
+    if (options?.initializeSelectionOnDataChange && !isEditingCell) {
+      if (!hasSelection || shapeChanged) {
+        console.log('[MTE][useTableEditor] Initializing selection to first cell (A1)')
+        stableFunctions.current.initializeSelection()
+      } else {
+        console.log('[MTE][useTableEditor] Preserving selection (already selected and shape unchanged)')
+      }
+    } else {
+      console.log('[MTE][useTableEditor] Preserving selection (no initialization condition)')
     }
   }, [initialData])
 
+  const markInternalUpdate = () => {
+    internalUpdateRef.current = true
+    internalUpdateTsRef.current = Date.now()
+    // 既存タイマーをクリアし、新たにウィンドウ経過後にフラグを下ろす
+    if (internalUpdateClearTimerRef.current) {
+      clearTimeout(internalUpdateClearTimerRef.current)
+    }
+    internalUpdateClearTimerRef.current = setTimeout(() => {
+      internalUpdateRef.current = false
+      internalUpdateTsRef.current = 0
+      internalUpdateClearTimerRef.current = undefined as any
+    }, 800) as any
+  }
+
   const updateCell = useCallback((viewIndex: number, col: number, value: string) => {
+    markInternalUpdate()
+    console.log('[MTE][useTableEditor] updateCell called', { viewIndex, col, valueLength: value?.length ?? 0 })
     const modelIndex = viewToModelMap[viewIndex]
     if (modelIndex === undefined) return
 
@@ -144,6 +206,8 @@ export function useTableEditor(
   }, [viewToModelMap])
 
   const updateCells = useCallback((updates: Array<{ row: number; col: number; value: string }>) => {
+    markInternalUpdate()
+    console.log('[MTE][useTableEditor] updateCells called', { count: updates?.length || 0 })
     setTableData(prev => {
       const newRows = [...prev.rows]
       updates.forEach(({ row: viewIndex, col, value }) => {
@@ -158,6 +222,7 @@ export function useTableEditor(
   }, [viewToModelMap])
 
   const addRow = useCallback((viewIndex?: number) => {
+    markInternalUpdate()
     console.log('🔍 [useTableEditor] addRow called, sortState:', sortState)
     const isSorted = sortState?.direction !== 'none'
     setTableData(prev => {
@@ -178,6 +243,7 @@ export function useTableEditor(
   }, [sortState?.direction, viewToModelMap])
 
   const deleteRow = useCallback((viewIndex: number) => {
+    markInternalUpdate()
     const modelIndex = viewToModelMap[viewIndex]
     if (modelIndex === undefined) return
 
@@ -189,6 +255,7 @@ export function useTableEditor(
   }, [viewToModelMap])
 
   const addColumn = useCallback((index?: number) => {
+    markInternalUpdate()
     setTableData(prev => {
       const insertIndex = index !== undefined ? index : prev.headers.length
       const newHeaders = [...prev.headers]
@@ -205,6 +272,7 @@ export function useTableEditor(
   }, [])
 
   const deleteColumn = useCallback((index: number) => {
+    markInternalUpdate()
     setTableData(prev => {
       const newHeaders = [...prev.headers]
       newHeaders.splice(index, 1)
@@ -218,6 +286,7 @@ export function useTableEditor(
   }, [])
 
   const moveRow = useCallback((fromIndex: number, toIndex: number) => {
+    markInternalUpdate()
     console.log('🔍 [useTableEditor] moveRow called, sortState:', sortState)
     if (sortState?.direction !== 'none') return;
     setTableData(prev => {
@@ -229,6 +298,7 @@ export function useTableEditor(
   }, [sortState?.direction])
 
   const moveColumn = useCallback((fromIndex: number, toIndex: number) => {
+    markInternalUpdate()
     setTableData(prev => {
       const newHeaders = [...prev.headers]
       const [movedHeader] = newHeaders.splice(fromIndex, 1)
@@ -248,6 +318,7 @@ export function useTableEditor(
   }, [])
 
   const commitSort = useCallback(() => {
+    markInternalUpdate()
     setTableData(displayedData)
     resetSortState()
   }, [displayedData, resetSortState])
