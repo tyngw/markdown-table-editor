@@ -121,9 +121,6 @@ export function activate(context: vscode.ExtensionContext) {
                 console.log('Webview panel created successfully');
             }, 100);
 
-            const tableCount = allTableData.length;
-            const primaryTable = allTableData[selectedTableIndex];
-            vscode.window.showInformationMessage(`Table editor opened with ${tableCount} table${tableCount > 1 ? 's' : ''} (${primaryTable.rows.length} rows, ${primaryTable.headers.length} columns).`);
         } catch (error) {
             console.error('Error opening table editor:', error);
             vscode.window.showErrorMessage(`Failed to open table editor: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -221,9 +218,6 @@ export function activate(context: vscode.ExtensionContext) {
                 console.log('Webview panel created successfully in new panel');
             }, 100);
 
-            const tableCount = allTableData.length;
-            const primaryTable = allTableData[selectedTableIndex];
-            vscode.window.showInformationMessage(`Table editor opened in new panel with ${tableCount} table${tableCount > 1 ? 's' : ''} (${primaryTable.rows.length} rows, ${primaryTable.headers.length} columns).`);
         } catch (error) {
             console.error('Error opening table editor in new panel:', error);
             vscode.window.showErrorMessage(`Failed to open table editor in new panel: ${error instanceof Error ? error.message : 'Unknown error'}`);
