@@ -840,9 +840,31 @@ export class WebviewManager {
      */
     private async handleUndo(panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
         try {
-            // WebviewがアクティブだとUndoが効かないケースがあるため、対象ドキュメントへ一時的にフォーカス
-            const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.window.showTextDocument(doc, { preserveFocus: false, preview: true });
+            // 既存のエディタを探す
+            const existingEditor = vscode.window.visibleTextEditors.find(
+                editor => editor.document.uri.toString() === uri.toString()
+            );
+
+            if (existingEditor) {
+                // 既存エディタがある場合はそちらをアクティブにする
+                console.log('[MTE][Ext] Using existing editor for undo');
+                await vscode.window.showTextDocument(existingEditor.document, {
+                    viewColumn: existingEditor.viewColumn,
+                    preserveFocus: false,
+                    preview: false // 既存エディタなのでpreviewにしない
+                });
+            } else {
+                // 既存エディタがない場合は新しく開く（Webviewの隣のカラム）
+                console.log('[MTE][Ext] Opening document for undo in appropriate column');
+                const doc = await vscode.workspace.openTextDocument(uri);
+                const targetColumn = this.getAppropriateViewColumn(panel);
+                await vscode.window.showTextDocument(doc, {
+                    viewColumn: targetColumn,
+                    preserveFocus: false,
+                    preview: false // 一時的な操作なのでpreviewタブにしない
+                });
+            }
+            
             await vscode.commands.executeCommand('undo');
         } catch (error) {
             console.error('[MTE][Ext] Undo command failed:', error);
@@ -858,8 +880,31 @@ export class WebviewManager {
      */
     private async handleRedo(panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
         try {
-            const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.window.showTextDocument(doc, { preserveFocus: false, preview: true });
+            // 既存のエディタを探す
+            const existingEditor = vscode.window.visibleTextEditors.find(
+                editor => editor.document.uri.toString() === uri.toString()
+            );
+
+            if (existingEditor) {
+                // 既存エディタがある場合はそちらをアクティブにする
+                console.log('[MTE][Ext] Using existing editor for redo');
+                await vscode.window.showTextDocument(existingEditor.document, {
+                    viewColumn: existingEditor.viewColumn,
+                    preserveFocus: false,
+                    preview: false // 既存エディタなのでpreviewにしない
+                });
+            } else {
+                // 既存エディタがない場合は新しく開く（Webviewの隣のカラム）
+                console.log('[MTE][Ext] Opening document for redo in appropriate column');
+                const doc = await vscode.workspace.openTextDocument(uri);
+                const targetColumn = this.getAppropriateViewColumn(panel);
+                await vscode.window.showTextDocument(doc, {
+                    viewColumn: targetColumn,
+                    preserveFocus: false,
+                    preview: false // 一時的な操作なのでpreviewタブにしない
+                });
+            }
+            
             await vscode.commands.executeCommand('redo');
         } catch (error) {
             console.error('[MTE][Ext] Redo command failed:', error);
@@ -1504,6 +1549,25 @@ export class WebviewManager {
             command: 'updateTableData',
             data: tableData
         });
+    }
+
+    /**
+     * Get appropriate ViewColumn for text editor based on webview panel position
+     */
+    private getAppropriateViewColumn(panel: vscode.WebviewPanel): vscode.ViewColumn {
+        // If webview is in column Two, place text editor in column One
+        // If webview is in column One, place text editor in column Two
+        // Otherwise, use Beside to place it next to the webview
+        switch (panel.viewColumn) {
+            case vscode.ViewColumn.Two:
+                return vscode.ViewColumn.One;
+            case vscode.ViewColumn.One:
+                return vscode.ViewColumn.Two;
+            case vscode.ViewColumn.Three:
+                return vscode.ViewColumn.Two;
+            default:
+                return vscode.ViewColumn.Beside;
+        }
     }
 
 
