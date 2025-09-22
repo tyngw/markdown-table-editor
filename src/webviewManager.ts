@@ -4,13 +4,11 @@ import { TableData } from './tableDataManager';
 import * as fs from 'fs';
 import { buildThemeVariablesCss } from './themeUtils';
 import { UndoRedoManager } from './undoRedoManager';
+import { WebviewMessage } from './messages/types';
+export type { WebviewMessage } from './messages/types';
+import { validateBasicMessageStructure, validateMessageCommand, validateMessageData } from './messages/validators';
 
-export interface WebviewMessage {
-    command: 'requestTableData' | 'updateCell' | 'bulkUpdateCells' | 'updateHeader' | 'addRow' | 'deleteRows' | 'addColumn' | 'deleteColumns' | 'sort' | 'moveRow' | 'moveColumn' | 'exportCSV' | 'pong' | 'switchTable' | 'requestThemeVariables' | 'undo' | 'redo';
-    data?: any;
-    timestamp?: number;
-    responseTime?: number;
-}
+    // WebviewMessage 型は messages/types へ分離
 
 export class WebviewManager {
     private static instance: WebviewManager;
@@ -247,6 +245,16 @@ export class WebviewManager {
     }
 
     /**
+     * Backward-compatible message validator for tests
+     */
+    public validateMessage(message: any): boolean {
+        if (!validateBasicMessageStructure(message)) return false;
+        if (!validateMessageCommand(message)) return false;
+        if (!validateMessageData(message)) return false;
+        return true;
+    }
+
+    /**
      * Send success message to webview
      */
     public sendSuccess(panel: vscode.WebviewPanel, message: string, data?: any): void {
@@ -477,54 +485,65 @@ export class WebviewManager {
             // Note: Do NOT add "https://file+.vscode-resource.vscode-cdn.net". The '+' is encoded in actual host (file%2B...),
             // and hardcoding it causes CSP warnings. Use only panel.webview.cspSource as recommended by VS Code docs.
             const cspContent = `default-src 'none'; style-src 'unsafe-inline' ${panel.webview.cspSource}; script-src 'unsafe-inline' 'unsafe-eval' ${panel.webview.cspSource}; img-src ${panel.webview.cspSource} https: data:; font-src ${panel.webview.cspSource} https:`;
-            
-            // 最初に既存の全てのCSPメタタグを削除
-            html = html.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/gi, '');
-            
-            // <head>内の最初の部分（charsetとviewportの後）に新しいCSPメタタグを挿入
-            const headMatch = html.match(/(<head[^>]*>[\s\S]*?<meta\s+name="viewport"[^>]*>)/i);
-            if (headMatch) {
-                html = html.replace(
-                    headMatch[0],
-                    `${headMatch[0]}\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
-                );
-            } else {
-                // viewport metaがない場合は、<head>タグの直後に挿入
-                html = html.replace(
-                    /(<head[^>]*>)/i,
-                    `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
-                );
+
+            // 既存の全てのCSPメタタグを削除（バリエーションを広くカバー）
+            const cspMetaPattern = /<meta\s+[^>]*http-equiv=["']Content-Security-Policy["'][^>]*>/gi;
+            const beforeRemovalCount = (html.match(cspMetaPattern) || []).length;
+            if (beforeRemovalCount > 0) {
+                console.log('Existing CSP meta tag count before removal:', beforeRemovalCount);
             }
-            
-            // ログでCSP処理結果を確認
+            html = html.replace(cspMetaPattern, '');
+
+            // <head>タグ直後にCSPメタタグを挿入（viewport 有無によらず確実に先頭近くに配置）
+            html = html.replace(
+                /(<head[^>]*>)/i,
+                `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
+            );
+
+            // 診断ログ: CSP メタの件数と位置を詳細に出力
+            const headStartIndex = html.toLowerCase().indexOf('<head');
+            const headOpenEnd = headStartIndex >= 0 ? html.indexOf('>', headStartIndex) : -1;
+            const headEndIndex = html.toLowerCase().indexOf('</head>');
+            const cspMatches: Array<{ index: number; snippet: string }> = [];
+            let m: RegExpExecArray | null;
+            const scanRe = new RegExp(cspMetaPattern);
+            while ((m = scanRe.exec(html)) !== null) {
+                cspMatches.push({ index: m.index, snippet: html.substring(m.index, Math.min(m.index + 120, html.length)) });
+            }
             console.log('CSP processing completed');
-            console.log('HTML contains CSP meta tag:', html.includes('Content-Security-Policy'));
-            
-            // HTML構造の妥当性チェック（強化版）
-            const headStartIndex = html.indexOf('<head>');
-            const headEndIndex = html.indexOf('</head>');
-            const cspIndex = html.indexOf('Content-Security-Policy');
-            
+            console.log('CSP meta tag count after insertion:', cspMatches.length);
+            console.log('HTML contains CSP meta tag:', cspMatches.length > 0);
             console.log('HTML structure analysis:');
-            console.log('Head start index:', headStartIndex);
-            console.log('Head end index:', headEndIndex);  
-            console.log('CSP meta index:', cspIndex);
-            console.log('CSP is before head end:', cspIndex < headEndIndex && cspIndex > headStartIndex);
-            
-            // CSPメタタグが<head>外にある場合の最終修正
-            if (cspIndex >= 0 && (cspIndex < headStartIndex || cspIndex > headEndIndex)) {
-                console.warn('CSP meta tag is not properly positioned within <head> element - applying final fix');
-                
-                // 全てのCSPメタタグを削除
-                html = html.replace(/<meta\s+http-equiv="Content-Security-Policy"[^>]*>/gi, '');
-                
-                // <head>の直後に確実に挿入
+            console.log('Head open tag index:', headStartIndex, 'head open end:', headOpenEnd);
+            console.log('Head end index:', headEndIndex);
+            cspMatches.forEach((mm, i) => {
+                const insideHead = headOpenEnd >= 0 && headEndIndex >= 0 && mm.index > headOpenEnd && mm.index < headEndIndex;
+                console.log(`CSP[${i}] index:`, mm.index, 'inside <head>:', insideHead);
+            });
+
+            // 最終保険: どれかが head 範囲外にあれば修正を試みる
+            const hasOutside = cspMatches.some(mm => !(headOpenEnd >= 0 && headEndIndex >= 0 && mm.index > headOpenEnd && mm.index < headEndIndex));
+            if (hasOutside) {
+                console.warn('Detected CSP meta tag(s) outside <head>. Applying final repositioning.');
+                html = html.replace(cspMetaPattern, '');
                 html = html.replace(
                     /(<head[^>]*>)/i,
                     `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
                 );
-                
                 console.log('Final CSP fix applied');
+            }
+
+            // --- Webview 起動診断スクリプトを head に挿入 ---
+            try {
+                const diagScript = `\n    <script>(function(){\n      try {\n        var _vscode = (typeof acquireVsCodeApi === 'function') ? acquireVsCodeApi() : null;\n        window.addEventListener('DOMContentLoaded', function(){\n          try { console.log('[MTE][WV] DOMContentLoaded'); _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'DOMContentLoaded' } }); } catch(e) {}\n        });\n        window.addEventListener('load', function(){\n          try { console.log('[MTE][WV] load'); _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'load' } }); } catch(e) {}\n        });\n        window.addEventListener('error', function(e){\n          try { _vscode && _vscode.postMessage({ command: 'webviewError', data: { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error && e.error.stack } }); } catch(_) {}\n        });\n        window.addEventListener('unhandledrejection', function(e){\n          try { var r = e && e.reason; _vscode && _vscode.postMessage({ command: 'webviewUnhandledRejection', data: { message: r && (r.message || r.toString && r.toString()), stack: r && r.stack } }); } catch(_) {}\n        });\n        console.log('[MTE][WV] diag script installed');\n        _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'diag-installed' } });\n      } catch(e) { try { console.log('[MTE][WV] diag init failed', e && (e.stack || e)); } catch(_) {} }\n    })();<\/script>`;
+                if (headOpenEnd >= 0) {
+                    html = html.slice(0, headOpenEnd + 1) + diagScript + html.slice(headOpenEnd + 1);
+                } else {
+                    // 念のため先頭に挿入
+                    html = diagScript + html;
+                }
+            } catch (diagErr) {
+                console.warn('Failed to inject diagnostic script into webview HTML:', diagErr);
             }
             
             console.log('Using React build for webview');
@@ -700,7 +719,7 @@ export class WebviewManager {
             this.markConnectionHealthy(panelId);
 
             // Basic message structure validation
-            if (!this.validateBasicMessageStructure(message)) {
+            if (!validateBasicMessageStructure(message)) {
                 this.sendError(panel, 'Invalid message format received from webview');
                 return;
             }
@@ -708,12 +727,12 @@ export class WebviewManager {
             console.log(`Handling webview message: ${message.command}`, message.data);
 
             // Validate specific message content based on command
-            if (!this.validateMessageCommand(message)) {
+            if (!validateMessageCommand(message)) {
                 this.sendError(panel, `Unknown command: ${message.command}`);
                 return;
             }
 
-            if (!this.validateMessageData(message)) {
+            if (!validateMessageData(message)) {
                 this.sendError(panel, 'Invalid message data received from webview');
                 return;
             }
@@ -792,196 +811,29 @@ export class WebviewManager {
                     await this.handleRedo(panel, uri);
                     break;
 
+                case 'diag':
+                    // Diagnostic pings from webview – keep lightweight
+                    console.log('[MTE][Ext] diag:', message.data);
+                    break;
+
+                case 'webviewError':
+                    console.warn('[MTE][Ext] webviewError:', message.data);
+                    break;
+
+                case 'webviewUnhandledRejection':
+                    console.warn('[MTE][Ext] webviewUnhandledRejection:', message.data);
+                    break;
+
                 default:
-                    console.warn('Unknown message command:', message.command);
-                    this.sendError(panel, `Unknown command: ${message.command}`);
+                    console.warn('[MTE][Ext] Unhandled webview command:', message.command, message.data);
+                    break;
             }
-        } catch (error) {
-            console.error('Error handling webview message:', error);
-            this.sendError(panel, `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } catch (err) {
+            console.error('[MTE][Ext] Error handling webview message:', err);
+            try { this.sendError(panel, `Error handling message: ${err instanceof Error ? err.message : String(err)}`); } catch {}
         }
     }
 
-    /**
-     * Validate incoming message structure
-     */
-    public validateMessage(message: any): message is WebviewMessage {
-        return this.validateBasicMessageStructure(message) &&
-            this.validateMessageCommand(message) &&
-            this.validateMessageData(message);
-    }
-
-    /**
-     * Validate basic message structure (object with command)
-     */
-    public validateBasicMessageStructure(message: any): boolean {
-        if (!message || typeof message !== 'object') {
-            return false;
-        }
-
-        if (!message.command || typeof message.command !== 'string') {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Validate if the command is known
-     */
-    public validateMessageCommand(message: any): boolean {
-        const validCommands = [
-            'requestTableData', 'updateCell', 'bulkUpdateCells', 'updateHeader', 'addRow', 'deleteRows',
-            'addColumn', 'deleteColumns', 'sort', 'moveRow', 'moveColumn', 'exportCSV', 'pong', 'switchTable', 'requestThemeVariables', 'undo', 'redo'
-        ];
-
-        return validCommands.includes(message.command);
-    }
-
-    /**
-     * Validate message data based on command
-     */
-    public validateMessageData(message: any): boolean {
-        // Validate data structure based on command
-        switch (message.command) {
-            case 'requestTableData':
-                return true; // No data required
-
-            case 'updateCell':
-                return this.validateCellUpdateData(message.data);
-
-            case 'bulkUpdateCells': {
-                const data = message.data;
-                if (!data || !Array.isArray(data.updates)) { return false; }
-                // basic check for update items
-                return data.updates.every((u: any) => typeof u === 'object' && typeof u.row === 'number' && typeof u.col === 'number' && typeof u.value === 'string');
-            }
-
-            case 'updateHeader':
-                return this.validateHeaderUpdateData(message.data);
-
-            case 'addRow':
-                return this.validateAddRowData(message.data);
-
-            case 'deleteRows':
-                return this.validateDeleteRowsData(message.data);
-
-            case 'addColumn':
-                return this.validateAddColumnData(message.data);
-
-            case 'deleteColumns':
-                return this.validateDeleteColumnsData(message.data);
-
-            case 'sort':
-                return this.validateSortData(message.data);
-
-            case 'moveRow':
-            case 'moveColumn':
-                return this.validateMoveData(message.data);
-
-            case 'exportCSV':
-                return this.validateExportCSVData(message.data);
-
-            case 'pong':
-                return true; // Pong messages don't require data validation
-
-            case 'switchTable':
-                return this.validateSwitchTableData(message.data);
-
-            case 'requestThemeVariables':
-                return true; // No data required
-
-            case 'undo':
-            case 'redo':
-                return true; // No data required
-
-            default:
-                return false;
-        }
-    }
-
-    private validateCellUpdateData(data: any): boolean {
-        if (!data) return false;
-        return typeof data.row === 'number' && data.row >= 0 &&
-            typeof data.col === 'number' && data.col >= 0 &&
-            typeof data.value === 'string' &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0));
-    }
-
-    private validateHeaderUpdateData(data: any): boolean {
-        if (!data) return false;
-        return typeof data.col === 'number' && data.col >= 0 &&
-            typeof data.value === 'string' &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0));
-    }
-
-    private validateAddRowData(data: any): boolean {
-        return !data || (data &&
-            (data.index === undefined || (typeof data.index === 'number' && data.index >= 0)) &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0)));
-    }
-
-    private validateDeleteRowsData(data: any): boolean {
-        if (!data) return false;
-        return Array.isArray(data.indices) && data.indices.length > 0 &&
-            data.indices.every((index: any) => typeof index === 'number' && index >= 0) &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0));
-    }
-
-    private validateAddColumnData(data: any): boolean {
-        return !data || (data &&
-            (data.index === undefined || (typeof data.index === 'number' && data.index >= 0)) &&
-            (data.header === undefined || typeof data.header === 'string') &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0)));
-    }
-
-    private validateDeleteColumnsData(data: any): boolean {
-        if (!data) return false;
-        return Array.isArray(data.indices) && data.indices.length > 0 &&
-            data.indices.every((index: any) => typeof index === 'number' && index >= 0) &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0));
-    }
-
-    private validateSortData(data: any): boolean {
-        if (!data) return false;
-        return typeof data.column === 'number' && data.column >= 0 &&
-            typeof data.direction === 'string' &&
-            (data.direction === 'asc' || data.direction === 'desc') &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0));
-    }
-
-    private validateMoveData(data: any): boolean {
-        if (!data) return false;
-        return typeof data.fromIndex === 'number' && data.fromIndex >= 0 &&
-            typeof data.toIndex === 'number' && data.toIndex >= 0 &&
-            (data.tableIndex === undefined || (typeof data.tableIndex === 'number' && data.tableIndex >= 0));
-    }
-
-    private validateExportCSVData(data: any): boolean {
-        if (!data) return false;
-        
-        // csvContent is required and must be a non-empty string
-        if (typeof data.csvContent !== 'string' || data.csvContent.length === 0) {
-            return false;
-        }
-        
-        // filename is optional (can be auto-generated), but if provided must be a string
-        if (data.filename !== undefined && (typeof data.filename !== 'string' || data.filename.length === 0)) {
-            return false;
-        }
-        
-        // encoding is optional (defaults to utf8), but if provided must be a string
-        if (data.encoding !== undefined && typeof data.encoding !== 'string') {
-            return false;
-        }
-        
-        return true;
-    }
-
-    private validateSwitchTableData(data: any): boolean {
-        if (!data) return false;
-        return typeof data.index === 'number' && data.index >= 0;
-    }
 
     /**
      * Handle request for table data
