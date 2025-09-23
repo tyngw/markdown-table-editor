@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## エージェントの応答方針
+- 本リポジトリに関する会話は常に日本語で簡潔に応答してください。
+- 実施したタスクの内容をこまめに報告してください
+
 ## プロジェクト構造とモジュール配置
 - `src/` にはアクティベーション処理（`extension.ts`）、各種マネージャ、ユーティリティがあり、VS Code API と整合するフレームワークレスな TypeScript を維持します。
 - `webview-react/` は React 製のフロントエンドで、ビルド成果物は `webview-dist/` に生成され、`npm run compile` が `out/webview/` へコピーします。
