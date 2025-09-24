@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { TableData } from './tableDataManager';
-import * as fs from 'fs';
 import { buildThemeVariablesCss } from './themeUtils';
 import { UndoRedoManager } from './undoRedoManager';
 import { WebviewMessage } from './messages/types';
 export type { WebviewMessage } from './messages/types';
 import { validateBasicMessageStructure, validateMessageCommand, validateMessageData } from './messages/validators';
+import { buildWebviewHtml } from './webviewHtmlBuilder';
 
     // WebviewMessage 型は messages/types へ分離
 
@@ -104,33 +104,8 @@ export class WebviewManager {
      * 非同期初期化処理
      */
     private async initializeAsync(): Promise<void> {
-        try {
-            console.log('WebviewManager: Starting async initialization...');
-            
-            // Check if webview build directory exists and is accessible
-            const reactBuildPath = vscode.Uri.joinPath(this.context.extensionUri, 'webview-dist');
-            try {
-                await vscode.workspace.fs.stat(reactBuildPath);
-                console.log('WebviewManager: React build directory verified');
-            } catch (error) {
-                console.warn('WebviewManager: React build directory not found, this may cause issues:', error);
-            }
-            
-            // Verify key build files exist
-            const indexHtmlPath = vscode.Uri.joinPath(reactBuildPath, 'index.html');
-            try {
-                await vscode.workspace.fs.stat(indexHtmlPath);
-                console.log('WebviewManager: React build index.html verified');
-            } catch (error) {
-                console.warn('WebviewManager: React build index.html not found:', error);
-            }
-            
-            this.isInitialized = true;
-            console.log('WebviewManager: Async initialization completed');
-        } catch (error) {
-            console.error('WebviewManager: Async initialization failed:', error);
-            // Don't throw - allow the manager to still function with reduced capabilities
-        }
+        // ビルド成果物の存在チェックは HTML ビルダー側で実施するため、ここでは状態遷移のみ行う。
+        this.isInitialized = true;
     }
     
     /**
@@ -376,186 +351,15 @@ export class WebviewManager {
 
         console.log('Webview panel created, setting HTML content...');
 
-        // Use React build for webview with enhanced error handling and retry logic
-        const reactBuildPath = vscode.Uri.joinPath(this.context.extensionUri, 'webview-dist');
-        
-        // Enhanced build path validation
-        let html: string = '';
-        let buildReady = false;
-        const maxRetries = 3;
-        const retryDelay = 100; // 100ms
-        
-        for (let attempt = 1; attempt <= maxRetries && !buildReady; attempt++) {
-            try {
-                console.log(`Attempting to load React build (attempt ${attempt}/${maxRetries})...`);
-                
-                // Check if React build directory exists first
-                try {
-                    await vscode.workspace.fs.stat(reactBuildPath);
-                    console.log('React build directory exists');
-                } catch (dirError) {
-                    console.error('React build directory not found:', reactBuildPath.toString());
-                    throw new Error(`React build directory not accessible: ${dirError}`);
-                }
-                
-                // Check if index.html exists
-                const indexHtmlPath = vscode.Uri.joinPath(reactBuildPath, 'index.html');
-                try {
-                    await vscode.workspace.fs.stat(indexHtmlPath);
-                    console.log('React build index.html found');
-                } catch (htmlError) {
-                    console.error('React build index.html not found:', indexHtmlPath.toString());
-                    throw new Error(`React build index.html not accessible: ${htmlError}`);
-                }
-                
-                // Try to read React build HTML
-                const htmlBuffer = await vscode.workspace.fs.readFile(indexHtmlPath);
-                html = Buffer.from(htmlBuffer).toString('utf8');
-                
-                if (!html || html.trim().length === 0) {
-                    throw new Error('React build HTML is empty');
-                }
-                
-                console.log(`React build loaded successfully (${html.length} characters)`);
-                buildReady = true;
-                
-            } catch (buildError) {
-                console.warn(`Build loading attempt ${attempt} failed:`, buildError);
-                
-                if (attempt < maxRetries) {
-                    console.log(`Retrying in ${retryDelay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, retryDelay));
-                } else {
-                    console.error('All build loading attempts failed');
-                    throw new Error(`React webview build not accessible after ${maxRetries} attempts: ${buildError}`);
-                }
-            }
-        }
-        
-        if (!buildReady || !html) {
-            throw new Error('Failed to load React build after all retry attempts');
-        }
-        
         try {
-            // Convert relative paths to webview URIs with safe URI handling
-            const assetsPath = vscode.Uri.joinPath(reactBuildPath, 'assets');
-            let assetsUri: vscode.Uri;
-            let assetsUriString: string;
-            
-            try {
-                assetsUri = panel.webview.asWebviewUri(assetsPath);
-                assetsUriString = this.getSafeUriString(assetsUri);
-                
-                // Fallback if getSafeUriString returns empty
-                if (!assetsUriString) {
-                    assetsUriString = assetsUri.toString();
-                }
-            } catch (uriError) {
-                console.error('Failed to convert assets path to webview URI:', uriError);
-                console.error('Assets path:', assetsPath.toString());
-                
-                // Fallback: try to encode the path safely
-                try {
-                    assetsUri = panel.webview.asWebviewUri(vscode.Uri.file(assetsPath.fsPath));
-                    assetsUriString = assetsUri.toString();
-                } catch (fallbackError) {
-                    console.error('Fallback URI creation also failed:', fallbackError);
-                    throw new Error(`Failed to create safe webview URI for assets: ${fallbackError}`);
-                }
-            }
-            
-            console.log('React build path:', reactBuildPath.toString());
-            console.log('Assets path:', assetsPath.toString());
-            console.log('Assets URI:', assetsUriString);
-            console.log('Original HTML:', html);
-            
-            // Replace asset paths with webview URIs (be careful not to double-replace)
-            const originalHtml = html;
-            // First replace relative paths
-            html = html.replace(/src="\.\/assets\//g, `src="${assetsUriString}/`);
-            html = html.replace(/href="\.\/assets\//g, `href="${assetsUriString}/`);
-            // Then replace any remaining absolute paths that weren't already replaced
-            html = html.replace(/src="\/assets\//g, `src="${assetsUriString}/`);
-            html = html.replace(/href="\/assets\//g, `href="${assetsUriString}/`);
-            
-            console.log('HTML after asset path replacement:', html);
-            console.log('Asset path replacements made:', originalHtml !== html);
-            
-            // Update CSP to allow React and webview resources
-            // Note: Do NOT add "https://file+.vscode-resource.vscode-cdn.net". The '+' is encoded in actual host (file%2B...),
-            // and hardcoding it causes CSP warnings. Use only panel.webview.cspSource as recommended by VS Code docs.
-            const cspContent = `default-src 'none'; style-src 'unsafe-inline' ${panel.webview.cspSource}; script-src 'unsafe-inline' 'unsafe-eval' ${panel.webview.cspSource}; img-src ${panel.webview.cspSource} https: data:; font-src ${panel.webview.cspSource} https:`;
-
-            // 既存の全てのCSPメタタグを削除（バリエーションを広くカバー）
-            const cspMetaPattern = /<meta\s+[^>]*http-equiv=["']Content-Security-Policy["'][^>]*>/gi;
-            const beforeRemovalCount = (html.match(cspMetaPattern) || []).length;
-            if (beforeRemovalCount > 0) {
-                console.log('Existing CSP meta tag count before removal:', beforeRemovalCount);
-            }
-            html = html.replace(cspMetaPattern, '');
-
-            // <head>タグ直後にCSPメタタグを挿入（viewport 有無によらず確実に先頭近くに配置）
-            html = html.replace(
-                /(<head[^>]*>)/i,
-                `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
-            );
-
-            // 診断ログ: CSP メタの件数と位置を詳細に出力
-            const headStartIndex = html.toLowerCase().indexOf('<head');
-            const headOpenEnd = headStartIndex >= 0 ? html.indexOf('>', headStartIndex) : -1;
-            const headEndIndex = html.toLowerCase().indexOf('</head>');
-            const cspMatches: Array<{ index: number; snippet: string }> = [];
-            let m: RegExpExecArray | null;
-            const scanRe = new RegExp(cspMetaPattern);
-            while ((m = scanRe.exec(html)) !== null) {
-                cspMatches.push({ index: m.index, snippet: html.substring(m.index, Math.min(m.index + 120, html.length)) });
-            }
-            console.log('CSP processing completed');
-            console.log('CSP meta tag count after insertion:', cspMatches.length);
-            console.log('HTML contains CSP meta tag:', cspMatches.length > 0);
-            console.log('HTML structure analysis:');
-            console.log('Head open tag index:', headStartIndex, 'head open end:', headOpenEnd);
-            console.log('Head end index:', headEndIndex);
-            cspMatches.forEach((mm, i) => {
-                const insideHead = headOpenEnd >= 0 && headEndIndex >= 0 && mm.index > headOpenEnd && mm.index < headEndIndex;
-                console.log(`CSP[${i}] index:`, mm.index, 'inside <head>:', insideHead);
-            });
-
-            // 最終保険: どれかが head 範囲外にあれば修正を試みる
-            const hasOutside = cspMatches.some(mm => !(headOpenEnd >= 0 && headEndIndex >= 0 && mm.index > headOpenEnd && mm.index < headEndIndex));
-            if (hasOutside) {
-                console.warn('Detected CSP meta tag(s) outside <head>. Applying final repositioning.');
-                html = html.replace(cspMetaPattern, '');
-                html = html.replace(
-                    /(<head[^>]*>)/i,
-                    `$1\n    <meta http-equiv="Content-Security-Policy" content="${cspContent}">`
-                );
-                console.log('Final CSP fix applied');
-            }
-
-            // --- Webview 起動診断スクリプトを head に挿入 ---
-            try {
-                const diagScript = `\n    <script>(function(){\n      try {\n        var _vscode = (typeof acquireVsCodeApi === 'function') ? acquireVsCodeApi() : null;\n        window.addEventListener('DOMContentLoaded', function(){\n          try { console.log('[MTE][WV] DOMContentLoaded'); _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'DOMContentLoaded' } }); } catch(e) {}\n        });\n        window.addEventListener('load', function(){\n          try { console.log('[MTE][WV] load'); _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'load' } }); } catch(e) {}\n        });\n        window.addEventListener('error', function(e){\n          try { _vscode && _vscode.postMessage({ command: 'webviewError', data: { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error && e.error.stack } }); } catch(_) {}\n        });\n        window.addEventListener('unhandledrejection', function(e){\n          try { var r = e && e.reason; _vscode && _vscode.postMessage({ command: 'webviewUnhandledRejection', data: { message: r && (r.message || r.toString && r.toString()), stack: r && r.stack } }); } catch(_) {}\n        });\n        console.log('[MTE][WV] diag script installed');\n        _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'diag-installed' } });\n      } catch(e) { try { console.log('[MTE][WV] diag init failed', e && (e.stack || e)); } catch(_) {} }\n    })();<\/script>`;
-                if (headOpenEnd >= 0) {
-                    html = html.slice(0, headOpenEnd + 1) + diagScript + html.slice(headOpenEnd + 1);
-                } else {
-                    // 念のため先頭に挿入
-                    html = diagScript + html;
-                }
-            } catch (diagErr) {
-                console.warn('Failed to inject diagnostic script into webview HTML:', diagErr);
-            }
-            
-            console.log('Using React build for webview');
-            console.log('Modified HTML length:', html.length);
-            console.log('Final HTML being sent to webview:', html);
+            console.log('Creating webview HTML via builder');
+            const html = await buildWebviewHtml(this.context, panel);
+            panel.webview.html = html;
         } catch (error) {
-            console.error('Failed to load React build:', error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`React webview build not found: ${errorMessage}`);
+            console.error('Failed to construct webview HTML:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Unable to construct webview HTML: ${message}`);
         }
-
-        panel.webview.html = html;
 
         console.log('HTML content set, storing panel reference...');
 
@@ -1238,27 +1042,6 @@ export class WebviewManager {
     }
 
     /**
-     * Build initial theme CSS synchronously for faster panel startup
-     */
-    private buildInitialThemeCssSync(): string {
-        // Simplified synchronous theme building for faster startup
-        return `
-            :root {
-                --primary-color: var(--vscode-button-background, #007acc);
-                --primary-hover: var(--vscode-button-hoverBackground, #005a9e);
-                --secondary-color: var(--vscode-button-secondaryBackground, #5f6a79);
-                --border-color: var(--vscode-panel-border, #454545);
-                --text-color: var(--vscode-foreground, #cccccc);
-                --background-color: var(--vscode-editor-background, #1e1e1e);
-                --selected-background: var(--vscode-list-activeSelectionBackground, #094771);
-                --hover-background: var(--vscode-list-hoverBackground, #2a2d2e);
-                --input-background: var(--vscode-input-background, #3c3c3c);
-                --input-border: var(--vscode-input-border, #464647);
-            }
-        `;
-    }
-
-    /**
      * Handle theme variables request from webview
      */
     private async handleRequestThemeVariables(panel: vscode.WebviewPanel): Promise<void> {
@@ -1311,92 +1094,6 @@ export class WebviewManager {
             console.warn('WebviewManager: Failed to apply theme to panel:', error);
         }
     }
-
-    /**
-     * Get the webview HTML content
-     */
-    private getWebviewContent(): string {
-        // Read the HTML file content
-        const htmlPath = path.join(this.context.extensionPath, 'webview', 'tableEditor.html');
-
-        console.log('Reading HTML from path:', htmlPath);
-
-        try {
-            const fs = require('fs');
-            const content = fs.readFileSync(htmlPath, 'utf8');
-            console.log('Successfully read HTML file, length:', content.length);
-            return content;
-        } catch (error) {
-            console.error('Error reading webview HTML file:', error);
-            console.log('Using fallback HTML');
-            return this.getFallbackHtml();
-        }
-    }
-
-    /**
-     * Get fallback HTML content if file reading fails
-     */
-    private getFallbackHtml(): string {
-        return `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Markdown Table Editor</title>
-                <style>
-                    body {
-                        font-family: var(--vscode-font-family);
-                        color: var(--vscode-foreground);
-                        background-color: var(--vscode-editor-background);
-                        padding: 20px;
-                        text-align: center;
-                    }
-                    .error {
-                        color: var(--vscode-errorForeground);
-                        background-color: var(--vscode-inputValidation-errorBackground);
-                        border: 1px solid var(--vscode-inputValidation-errorBorder);
-                        padding: 20px;
-                        border-radius: 4px;
-                        margin: 20px;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="error">
-                    <h2>Error Loading Table Editor</h2>
-                    <p>Could not load the table editor interface. Please check the extension installation.</p>
-                </div>
-            </body>
-            </html>
-        `;
-    }
-
-
-
-    /**
-     * Close panel by URI
-     */
-    public closePanel(uri: vscode.Uri): void {
-        const panel = this.panels.get(uri.toString());
-        if (panel) {
-            panel.dispose();
-        }
-    }
-
-    /**
-     * Close all panels
-     */
-    public closeAllPanels(): void {
-        for (const panel of this.panels.values()) {
-            panel.dispose();
-        }
-        this.panels.clear();
-    }
-
-
-
-
 
     /**
      * Send status update to webview
