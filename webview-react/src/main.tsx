@@ -2,21 +2,32 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { ensureVsCodeApi } from './vscodeApi'
+
+console.log('[MTE][React] bootstrap start');
 
 // VSCode API の型定義
 declare global {
   interface Window {
     acquireVsCodeApi?: () => any;
     vscode?: any;
+    __mteVscodeApi?: any;
   }
 }
 
 // VSCode webview環境の初期化
 function initializeVSCodeEnvironment() {
   try {
-    if (window.acquireVsCodeApi && !window.vscode) {
-      window.vscode = window.acquireVsCodeApi();
+    console.log('[MTE][React] initializeVSCodeEnvironment', {
+      hasAcquire: typeof window.acquireVsCodeApi === 'function',
+      hasCached: Boolean(window.vscode),
+      hasCachedGlobal: Boolean(window.__mteVscodeApi)
+    });
+    const api = ensureVsCodeApi();
+    if (api) {
       console.log('VSCode API initialized successfully');
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn('VSCode API not yet available during initialization');
     }
   } catch (error) {
     console.warn('Failed to initialize VSCode API:', error);
@@ -33,6 +44,7 @@ function initializeApp() {
 
   initializeVSCodeEnvironment();
 
+  console.log('[MTE][React] rendering App');
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <App />

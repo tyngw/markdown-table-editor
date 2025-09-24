@@ -16,11 +16,13 @@
             document.head.appendChild(link);
         }
         
-        // Acquire VSCode API once at the global level
+        // Acquire VSCode API once at the global level (skip if another script already did so)
         try {
-            window.vscode = acquireVsCodeApi();
+            if (typeof acquireVsCodeApi === 'function' && !window.vscode) {
+                window.vscode = acquireVsCodeApi();
+            }
         } catch (error) {
-            // This is expected when not in a VSCode webview
+            // This is expected when not in a VSCode webview or when another script already acquired it
         }
     </script>
 </head>

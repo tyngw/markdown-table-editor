@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { VSCodeMessage, TableData } from '../types'
+import { ensureVsCodeApi } from '../vscodeApi'
 
 interface VSCodeCommunicationCallbacks {
   onTableData?: (data: TableData | TableData[]) => void
@@ -22,8 +23,10 @@ export function useVSCodeCommunication(callbacks: VSCodeCommunicationCallbacks) 
       }
     }
     
-    if (window.vscode) {
-      window.vscode.postMessage(message)
+    const api = ensureVsCodeApi()
+    if (api) {
+      console.log('[MTE][ReactComm] postMessage', { command: message.command })
+      api.postMessage(message)
     } else {
       console.warn('VSCode API not available')
     }

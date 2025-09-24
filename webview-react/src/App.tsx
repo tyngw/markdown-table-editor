@@ -55,6 +55,11 @@ function AppContent() {
 
   const { sendMessage } = useVSCodeCommunication({
     onTableData: (data: TableData | TableData[]) => {
+      console.log('[MTE][React] onTableData received', {
+        isArray: Array.isArray(data),
+        length: Array.isArray(data) ? data.length : 1,
+        timestamp: Date.now()
+      })
       // Logging disabled for production
       // If too many updates arrive while a pending tab switch is stale, ignore
       const pend = pendingTabSwitchRef.current
@@ -107,12 +112,20 @@ function AppContent() {
         currentIndexRef.current = 0
       }
       setLoading(false)
+      console.log('[MTE][React] onTableData handled', {
+        loading: false,
+        tableCount: Array.isArray(data) ? data.length : 1
+      })
     },
     onError: (errorMessage: string) => {
+      console.error('[MTE][React] onError', errorMessage)
       setError(errorMessage)
       setLoading(false)
     },
     onThemeVariables: (data: any) => {
+      console.log('[MTE][React] onThemeVariables received', {
+        keys: data && typeof data === 'object' ? Object.keys(data) : null
+      })
       // Theme variables logging disabled for production
       applyThemeVariables(data)
     },
@@ -139,15 +152,18 @@ function AppContent() {
   useEffect(() => {
     // Debug: Check window properties when React app starts
     // 初期データをリクエスト
+    console.log('[MTE][React] requesting initial table data');
     sendMessage({ command: 'requestTableData' })
     
     // テーマ変数をリクエスト（一度だけ）
     if (!themeRequested) {
+      console.log('[MTE][React] requesting theme variables (initial)');
       sendMessage({ command: 'requestThemeVariables' })
       setThemeRequested(true)
       
       // VSCodeの初期化遅延に対応するため、少し遅延してもう一度リクエスト
       setTimeout(() => {
+        console.log('[MTE][React] requesting theme variables (delayed retry)');
         sendMessage({ command: 'requestThemeVariables' })
       }, 500)
     }
