@@ -1346,6 +1346,10 @@ export function activate(context: vscode.ExtensionContext) {
             }
             const rectangular = toRectangular(rows)
 
+            // Export時の逆変換: セル内の改行(\n)をストレージ形式の <br/> に変換
+            const headersNormalized = rectangular.headers.map(h => (h ?? '').replace(/\n/g, '<br/>'))
+            const rowsNormalized = rectangular.rows.map(r => r.map(c => (c ?? '').replace(/\n/g, '<br/>')))
+
             // 確認ダイアログ（モーダル）。承認時のみ上書き
             const confirm = await vscode.window.showWarningMessage(
                 'インポートしたCSVは現在のシートに上書きされます。\nよろしいですか？',
@@ -1362,7 +1366,7 @@ export function activate(context: vscode.ExtensionContext) {
             await undoRedoManager.saveState(uri, 'Import CSV')
 
             // テーブルに反映（置換）
-            tableDataManager.replaceContents(rectangular.headers, rectangular.rows)
+            tableDataManager.replaceContents(headersNormalized, rowsNormalized)
 
             // Markdownへ反映
             const updatedMarkdown = tableDataManager.serializeToMarkdown()
