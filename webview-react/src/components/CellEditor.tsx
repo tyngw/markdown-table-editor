@@ -237,7 +237,8 @@ const CellEditor: React.FC<CellEditorProps> = ({
   }, [])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+    // Cmd+A/C/V/Xは標準動作を許可（全選択・クリップボード操作）
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
       return;
     }
     // ローカルUndo/Redo（VSCodeへの伝播を防ぐ）
@@ -262,23 +263,27 @@ const CellEditor: React.FC<CellEditorProps> = ({
     }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
+      e.stopPropagation()
       onCommit(currentValue)
     } else if (e.key === 'Enter' && e.shiftKey) {
       e.stopPropagation()
     } else if (e.key === 'Enter' && !isComposing) {
       e.preventDefault()
+      e.stopPropagation()
       onCommit(currentValue, 'down')
     } else if (e.key === 'Enter' && isComposing) {
       e.stopPropagation()
     } else if (e.key === 'Escape') {
       e.preventDefault()
+      e.stopPropagation()
       onCancel()
     } else if (e.key === 'Tab') {
       e.preventDefault()
+      e.stopPropagation()
       onCommit(currentValue, e.shiftKey ? 'left' : 'right')
     }
-    e.stopPropagation()
-  }, [currentValue, onCommit, onCancel, isComposing])
+    // 注意：最後のe.stopPropagation()を削除（クリップボード操作を妨げないため）
+  }, [currentValue, onCommit, onCancel, isComposing, doUndo, doRedo])
 
   const handleCompositionStart = useCallback(() => {
     setIsComposing(true)
