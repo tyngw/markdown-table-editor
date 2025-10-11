@@ -31,6 +31,14 @@ npm run dev:webview     # start the Vite dev server with hot reload
   - **Ctrl+X/Ctrl+V** for cutting and pasting cell content (non-editing mode)
   - Multi-cell selection support with tab-delimited data handling
   - Standard editing shortcuts (Ctrl+C, Ctrl+V, Ctrl+X) during cell editing
+- **Autofill**: 
+  - Drag the fill handle (bottom-right corner of selection) to auto-fill cells
+  - Automatically detects patterns: numbers (1, 2, 3...), dates, weekdays, months
+  - Date formats with or without year (2024/01/29 or 1/29, preserves original format)
+  - Smart text with number increment (Item 1 → Item 2, Test-A-5 → Test-A-6)
+  - Preserves zero-padding (001, 002, 003...)
+  - Handles multiple numbers by incrementing the last occurrence
+  - Smart pattern recognition for series and copy operations
 - **Column Width Management**: 
   - Manual resizing with drag handles
   - **Double-click** on resize handles for auto-fit to content
