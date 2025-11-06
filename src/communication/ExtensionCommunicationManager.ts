@@ -59,37 +59,52 @@ export class ExtensionCommunicationManager {
   /**
    * 受信メッセージの処理
    */
-  private async handleIncomingMessage(message: ProtocolMessage): Promise<void> {
-    console.log('[ExtComm] Received message:', message.type, message.command, message.id);
+  private async handleIncomingMessage(message: any): Promise<void> {
+    // メッセージの基本構造を検証
+    if (!message || typeof message !== 'object') {
+      console.warn('[ExtComm] Invalid message format (not an object):', message);
+      return;
+    }
+
+    // 新しいプロトコル形式かチェック
+    if (!message.type || !message.id || !message.command || !message.timestamp) {
+      console.warn('[ExtComm] Invalid protocol message (missing required fields):', message);
+      return;
+    }
+
+    const protocolMessage = message as ProtocolMessage;
+    console.log('[ExtComm] Received message:', protocolMessage.type, protocolMessage.command, protocolMessage.id);
 
     try {
-      switch (message.type) {
+      switch (protocolMessage.type) {
         case MessageType.REQUEST:
-          await this.handleRequest(message as RequestMessage);
+          await this.handleRequest(protocolMessage as RequestMessage);
           break;
 
         case MessageType.RESPONSE:
-          this.handleResponse(message as ResponseMessage);
+          this.handleResponse(protocolMessage as ResponseMessage);
           break;
 
         case MessageType.ACK:
-          this.handleAck(message as AckMessage);
+          this.handleAck(protocolMessage as AckMessage);
           break;
 
         case MessageType.NOTIFICATION:
-          await this.handleNotification(message as NotificationMessage);
+          await this.handleNotification(protocolMessage as NotificationMessage);
           break;
 
         case MessageType.ERROR:
-          console.error('[ExtComm] Received error message:', message);
+          console.error('[ExtComm] Received error message:', protocolMessage);
           break;
 
         default:
-          console.warn('[ExtComm] Unknown message type:', message);
+          console.warn('[ExtComm] Unknown message type:', (protocolMessage as any).type);
       }
     } catch (error) {
       console.error('[ExtComm] Error handling message:', error);
-      this.sendError(message.id, error instanceof Error ? error.message : String(error));
+      if (protocolMessage.id) {
+        this.sendError(protocolMessage.id, error instanceof Error ? error.message : String(error));
+      }
     }
   }
 

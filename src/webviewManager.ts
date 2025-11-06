@@ -536,19 +536,6 @@ export class WebviewManager {
                 console.log('Final CSP fix applied');
             }
 
-            // --- Webview 起動診断スクリプトを head に挿入 ---
-            try {
-                const diagScript = `\n    <script>(function(){\n      try {\n        var _vscode = (typeof acquireVsCodeApi === 'function') ? acquireVsCodeApi() : null;\n        window.addEventListener('DOMContentLoaded', function(){\n          try { console.log('[MTE][WV] DOMContentLoaded'); _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'DOMContentLoaded' } }); } catch(e) {}\n        });\n        window.addEventListener('load', function(){\n          try { console.log('[MTE][WV] load'); _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'load' } }); } catch(e) {}\n        });\n        window.addEventListener('error', function(e){\n          try { _vscode && _vscode.postMessage({ command: 'webviewError', data: { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error && e.error.stack } }); } catch(_) {}\n        });\n        window.addEventListener('unhandledrejection', function(e){\n          try { var r = e && e.reason; _vscode && _vscode.postMessage({ command: 'webviewUnhandledRejection', data: { message: r && (r.message || r.toString && r.toString()), stack: r && r.stack } }); } catch(_) {}\n        });\n        console.log('[MTE][WV] diag script installed');\n        _vscode && _vscode.postMessage({ command: 'diag', data: { event: 'diag-installed' } });\n      } catch(e) { try { console.log('[MTE][WV] diag init failed', e && (e.stack || e)); } catch(_) {} }\n    })();<\/script>`;
-                if (headOpenEnd >= 0) {
-                    html = html.slice(0, headOpenEnd + 1) + diagScript + html.slice(headOpenEnd + 1);
-                } else {
-                    // 念のため先頭に挿入
-                    html = diagScript + html;
-                }
-            } catch (diagErr) {
-                console.warn('Failed to inject diagnostic script into webview HTML:', diagErr);
-            }
-            
             console.log('Using React build for webview');
             console.log('Modified HTML length:', html.length);
             console.log('Final HTML being sent to webview:', html);
