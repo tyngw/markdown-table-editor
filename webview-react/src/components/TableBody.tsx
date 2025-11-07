@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { EditorState, CellPosition } from '../types'
+import { EditorState, CellPosition, HeaderConfig } from '../types'
 import { processCellContent, processCellContentForEditing, processCellContentForStorage } from '../utils/contentConverter'
 import CellEditor from './CellEditor'
 import { getColumnLetter } from '../utils/tableUtils'
@@ -20,6 +20,7 @@ interface TableBodyProps {
   selectedRows?: Set<number>
   fillRange?: { start: CellPosition; end: CellPosition } | null
   onFillHandleMouseDown?: (event: React.MouseEvent) => void
+  headerConfig?: HeaderConfig
 }
 
 const TableBody: React.FC<TableBodyProps> = ({
@@ -35,7 +36,8 @@ const TableBody: React.FC<TableBodyProps> = ({
   getDropProps,
   selectedRows,
   fillRange,
-  onFillHandleMouseDown
+  onFillHandleMouseDown,
+  headerConfig
 }) => {
   const savedHeightsRef = useRef<Map<string, { original: number; rowMax: number }>>(new Map())
 
@@ -364,10 +366,11 @@ const TableBody: React.FC<TableBodyProps> = ({
   return (
     <tbody>
       {rows.map((row, rowIndex) => {
+        const rowHeaderValue = headerConfig?.hasRowHeaders ? (row[0] || '') : ''
         return (
         <tr key={rowIndex} data-row={rowIndex}>
-          <td 
-            className={`row-number ${selectedRows?.has(rowIndex) ? 'highlighted' : ''}`}
+          <td
+            className={`row-number ${selectedRows?.has(rowIndex) ? 'highlighted' : ''} ${headerConfig?.hasRowHeaders ? 'row-header-with-value' : ''}`}
             onClick={(e) => {
               if (onRowSelect) {
                 onRowSelect(rowIndex, e)
@@ -379,14 +382,25 @@ const TableBody: React.FC<TableBodyProps> = ({
               }
             }}
             onContextMenu={(e) => handleRowContextMenu(e, rowIndex)}
-            title={`Row ${rowIndex + 1}`}
+            title={headerConfig?.hasRowHeaders ? `Row ${rowIndex + 1}: ${rowHeaderValue}` : `Row ${rowIndex + 1}`}
             {...(getDragProps ? getDragProps('row', rowIndex) : {})}
             {...(getDropProps ? getDropProps('row', rowIndex) : {})}
           >
-            {rowIndex + 1}
+            {headerConfig?.hasRowHeaders ? (
+              <div className="row-header-content">
+                <div className="row-number-label">{rowIndex + 1}</div>
+                <div className="row-header-title">{rowHeaderValue}</div>
+              </div>
+            ) : (
+              rowIndex + 1
+            )}
           </td>
-          
+
           {row.map((cell, colIndex) => {
+            // 行ヘッダーONの場合、先頭列をスキップ
+            if (headerConfig?.hasRowHeaders && colIndex === 0) {
+              return null
+            }
             const cellId = `cell-${rowIndex}-${colIndex}`
             const isEmpty = !cell || cell.trim() === ''
             const cellClass = isEmpty ? 'empty-cell' : ''
