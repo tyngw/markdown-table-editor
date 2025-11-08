@@ -333,7 +333,16 @@ export function useTableEditor(
   }, [])
 
   const setRowHeight = useCallback((row: number, height: number) => {
-    setRowHeights(prev => ({ ...prev, [row]: height }))
+    setRowHeights(prev => {
+      const next = { ...prev }
+      if (height === 0) {
+        // 高さが0の場合は削除（auto-fitに戻す）
+        delete next[row]
+      } else {
+        next[row] = height
+      }
+      return next
+    })
   }, [])
 
   const commitSort = useCallback(() => {
