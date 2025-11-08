@@ -9,6 +9,7 @@ interface TableBodyProps {
   rows: string[][]
   editorState: EditorState
   onCellUpdate: (row: number, col: number, value: string) => void
+  onHeaderUpdate?: (col: number, value: string) => void
   onCellSelect: (row: number, col: number, extend?: boolean, toggle?: boolean) => void
   onCellEdit: (position: CellPosition | null) => void
   onAddRow: (index?: number) => void
@@ -28,6 +29,7 @@ const TableBody: React.FC<TableBodyProps> = ({
   rows,
   editorState,
   onCellUpdate,
+  onHeaderUpdate,
   onCellSelect,
   onCellEdit,
   onRowSelect,
@@ -406,25 +408,30 @@ const TableBody: React.FC<TableBodyProps> = ({
                 id={cellId}
                 data-row={-1}
                 data-col={colIndex}
-                className={`${cellClass} ${userResizedClass} ${isSelected ? 'selected' : ''} ${isInFillRange ? 'fill-range' : ''}`}
+                className={`data-cell ${cellClass} ${userResizedClass} ${isSelected ? 'selected' : ''} ${isEditing ? 'editing' : ''} ${isInFillRange ? 'fill-range' : ''}`}
                 style={widthStyle}
                 onMouseDown={(e) => handleCellMouseDown(-1, colIndex, e)}
+                onDoubleClick={() => startCellEdit(-1, colIndex)}
+                title={`Header ${getColumnLetter(colIndex)}`}
               >
                 {isEditing ? (
                   <CellEditor
-                    initialValue={processCellContentForEditing(header)}
-                    onSave={(value) => {
+                    value={processCellContentForEditing(header)}
+                    onCommit={(value) => {
                       const processed = processCellContentForStorage(value)
-                      onCellUpdate(-1, colIndex, processed)
+                      // 0行目（ヘッダー行）の編集は onHeaderUpdate を使用
+                      if (onHeaderUpdate) {
+                        onHeaderUpdate(colIndex, processed)
+                      }
                       onCellEdit(null)
                     }}
                     onCancel={() => onCellEdit(null)}
-                    cellId={cellId}
+                    rowIndex={-1}
+                    colIndex={colIndex}
                   />
                 ) : (
                   <div
                     className="cell-content"
-                    onDoubleClick={() => startCellEdit(-1, colIndex)}
                     dangerouslySetInnerHTML={{ __html: processCellContent(header) }}
                   />
                 )}
