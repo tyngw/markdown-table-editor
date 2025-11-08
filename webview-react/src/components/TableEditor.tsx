@@ -387,6 +387,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
             rows={displayedTableData.rows}
             editorState={editorState}
             onCellUpdate={handleCellUpdate}
+            onHeaderUpdate={handleHeaderUpdate}
             onCellSelect={selectCell}
             onCellEdit={setCurrentEditingCell}
             onAddRow={addRow}
