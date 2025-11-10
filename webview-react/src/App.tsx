@@ -281,6 +281,7 @@ function AppContent() {
         <TableEditor
           tableData={currentTableData}
           currentTableIndex={currentTableIndex}
+          allTables={allTables}
           onTableUpdate={handleTableUpdate}
           onSendMessage={communication.sendMessage}
           sortState={sortStates[currentTableIndex]}
