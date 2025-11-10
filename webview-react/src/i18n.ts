@@ -4,30 +4,38 @@ import en from './locales/en.json';
 import ja from './locales/ja.json';
 import zhCN from './locales/zh-cn.json';
 
-// Get language from VS Code API if available
+// Get language from VS Code
 const getVSCodeLanguage = (): string => {
   try {
-    // Check if we're in a VS Code webview
-    if (typeof window !== 'undefined' && (window as any).acquireVsCodeApi) {
-      // VS Code will set the language via the data-vscode-language attribute
-      const lang = document.documentElement.getAttribute('data-vscode-language');
-      if (lang) {
-        // Map VS Code language codes to our supported languages
-        if (lang.startsWith('ja')) return 'ja';
-        if (lang.startsWith('zh')) return 'zh-cn';
-        return 'en';
-      }
+    // Try to get language from HTML attribute set by VS Code
+    const lang = document.documentElement.getAttribute('data-vscode-language');
+    if (lang) {
+      const lowerLang = lang.toLowerCase();
+      // Map VS Code language codes to our supported languages
+      if (lowerLang.startsWith('ja')) return 'ja';
+      if (lowerLang.startsWith('zh-cn') || lowerLang.startsWith('zh_cn')) return 'zh-cn';
+      if (lowerLang.startsWith('zh')) return 'zh-cn'; // Chinese variants
+      if (lowerLang.startsWith('en')) return 'en';
     }
   } catch (e) {
-    console.warn('Failed to get VS Code language', e);
+    console.warn('[i18n] Failed to get VS Code language from attribute', e);
   }
 
   // Fallback to browser language
-  const browserLang = navigator.language.toLowerCase();
-  if (browserLang.startsWith('ja')) return 'ja';
-  if (browserLang.startsWith('zh')) return 'zh-cn';
+  try {
+    const browserLang = navigator.language.toLowerCase();
+    if (browserLang.startsWith('ja')) return 'ja';
+    if (browserLang.startsWith('zh')) return 'zh-cn';
+  } catch (e) {
+    console.warn('[i18n] Failed to get browser language', e);
+  }
+
+  // Default to English
   return 'en';
 };
+
+const detectedLanguage = getVSCodeLanguage();
+console.log('[i18n] Detected language:', detectedLanguage);
 
 i18n
   .use(initReactI18next)
@@ -37,11 +45,12 @@ i18n
       ja: { translation: ja },
       'zh-cn': { translation: zhCN }
     },
-    lng: getVSCodeLanguage(),
+    lng: detectedLanguage,
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false
-    }
+    },
+    debug: false
   });
 
 export default i18n;
