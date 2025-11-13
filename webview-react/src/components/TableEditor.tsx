@@ -59,8 +59,9 @@ const TableEditor: React.FC<TableEditorProps> = ({
 
   // 非表示の入力キャプチャ（IME入力対応）
   const inputCaptureRef = useRef<HTMLInputElement>(null)
+  const tableContainerRef = useRef<HTMLDivElement>(null)
   const [isComposing, setIsComposing] = useState(false)
-  const compositionHandledRef = useRef(false) // compositionendで処理済みかのフラグ
+  const compositionHandledRef = useRef(false)
 
   const { updateStatus, updateTableInfo, updateSaveStatus, updateSortState } = useStatus()
 
@@ -474,17 +475,24 @@ const TableEditor: React.FC<TableEditorProps> = ({
     input.value = ''
   }, [isComposing, editorState.selectionRange, editorState.currentEditingCell, setCurrentEditingCell, setInitialCellInput])
 
-  // セル選択時に入力キャプチャにフォーカス
+  // セル選択時にtable-containerにフォーカス（キーボードナビゲーションのため）
   useEffect(() => {
-    // 編集中でない場合、inputCaptureにフォーカス
-    if (!editorState.currentEditingCell && inputCaptureRef.current && editorState.selectionRange) {
-      inputCaptureRef.current.focus()
+    // 編集中でない場合、table-containerにフォーカス
+    if (!editorState.currentEditingCell && tableContainerRef.current && editorState.selectionRange) {
+      tableContainerRef.current.focus()
       // 編集モード終了時に初期入力をクリア
       if (initialCellInput) {
         setInitialCellInput(null)
       }
     }
   }, [editorState.currentEditingCell, editorState.selectionRange, initialCellInput, setInitialCellInput])
+
+  // 文字キー入力時にinputCaptureにフォーカスを移す関数
+  const handleStartTyping = useCallback(() => {
+    if (inputCaptureRef.current && !editorState.currentEditingCell) {
+      inputCaptureRef.current.focus()
+    }
+  }, [editorState.currentEditingCell])
 
   useKeyboardNavigation({
     tableData: displayedTableData,
@@ -507,7 +515,8 @@ const TableEditor: React.FC<TableEditorProps> = ({
       if (withReplace) {
         toggleReplace()
       }
-    }, [openSearch, toggleReplace])
+    }, [openSearch, toggleReplace]),
+    onStartTyping: handleStartTyping
   })
 
   const handleExportCsv = useCallback(() => {
@@ -577,7 +586,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
         aria-hidden="true"
         tabIndex={-1}
       />
-      <div className="table-container">
+      <div className="table-container" ref={tableContainerRef} tabIndex={0}>
         <table className="table-editor">
           <TableHeader
             headers={displayedTableData.headers}
