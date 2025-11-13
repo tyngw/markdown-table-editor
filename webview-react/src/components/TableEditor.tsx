@@ -61,6 +61,16 @@ const TableEditor: React.FC<TableEditorProps> = ({
   const inputCaptureRef = useRef<HTMLInputElement>(null)
   const [isComposing, setIsComposing] = useState(false)
   const compositionHandledRef = useRef(false)
+  const [inputCaptureStyle, setInputCaptureStyle] = useState<React.CSSProperties>({
+    position: 'fixed',
+    opacity: 0,
+    pointerEvents: 'none',
+    width: '1px',
+    height: '1px',
+    left: '0',
+    top: '0',
+    zIndex: -1
+  })
 
   const { updateStatus, updateTableInfo, updateSaveStatus, updateSortState } = useStatus()
 
@@ -474,15 +484,64 @@ const TableEditor: React.FC<TableEditorProps> = ({
     input.value = ''
   }, [isComposing, editorState.selectionRange, editorState.currentEditingCell, setCurrentEditingCell, setInitialCellInput])
 
+  // 選択セルの位置にinputCaptureを配置
+  const updateInputCapturePosition = useCallback(() => {
+    if (!editorState.selectionRange || editorState.currentEditingCell) {
+      // 編集中または選択なしの場合は非表示
+      setInputCaptureStyle({
+        position: 'fixed',
+        opacity: 0,
+        pointerEvents: 'none',
+        width: '1px',
+        height: '1px',
+        left: '0',
+        top: '0',
+        zIndex: -1
+      })
+      return
+    }
+
+    const currentPos = editorState.selectionRange.end || editorState.selectionRange.start
+    const cellElement = document.querySelector(
+      `td[data-row="${currentPos.row}"][data-col="${currentPos.col}"]`
+    ) as HTMLElement | null
+
+    if (cellElement) {
+      const rect = cellElement.getBoundingClientRect()
+      const container = document.querySelector('.table-container') as HTMLElement | null
+      const computedStyle = window.getComputedStyle(cellElement)
+
+      setInputCaptureStyle({
+        position: 'fixed',
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        fontSize: computedStyle.fontSize,
+        fontFamily: computedStyle.fontFamily,
+        padding: computedStyle.padding,
+        border: '2px solid #0066cc',
+        backgroundColor: 'white',
+        boxSizing: 'border-box',
+        zIndex: 1000,
+        pointerEvents: 'none',
+        outline: 'none'
+      })
+    }
+  }, [editorState.selectionRange, editorState.currentEditingCell])
+
   // セル選択時にinputCaptureに常にフォーカス（IME対応）
   useEffect(() => {
     // 編集中でない場合、inputCaptureにフォーカス
     if (!editorState.currentEditingCell && inputCaptureRef.current && editorState.selectionRange) {
+      updateInputCapturePosition()
       inputCaptureRef.current.focus()
       // 編集モード終了時に初期入力をクリア
       if (initialCellInput) {
         setInitialCellInput(null)
       }
+    } else {
+      updateInputCapturePosition()
     }
   }, [
     editorState.currentEditingCell,
@@ -491,8 +550,29 @@ const TableEditor: React.FC<TableEditorProps> = ({
     editorState.selectionRange?.end.row,
     editorState.selectionRange?.end.col,
     initialCellInput,
-    setInitialCellInput
+    setInitialCellInput,
+    updateInputCapturePosition
   ])
+
+  // スクロールとリサイズでinputCaptureの位置を更新
+  useEffect(() => {
+    const container = document.querySelector('.table-container')
+    const handleUpdate = () => {
+      updateInputCapturePosition()
+    }
+
+    if (container) {
+      container.addEventListener('scroll', handleUpdate)
+    }
+    window.addEventListener('resize', handleUpdate)
+
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleUpdate)
+      }
+      window.removeEventListener('resize', handleUpdate)
+    }
+  }, [updateInputCapturePosition])
 
   useKeyboardNavigation({
     tableData: displayedTableData,
@@ -572,16 +652,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
         ref={inputCaptureRef}
         type="text"
         className="input-capture"
-        style={{
-          position: 'fixed',
-          opacity: 0,
-          pointerEvents: 'none',
-          width: '1px',
-          height: '1px',
-          left: '0',
-          top: '0',
-          zIndex: -1
-        }}
+        style={inputCaptureStyle}
         onCompositionStart={handleInputCaptureCompositionStart}
         onCompositionEnd={handleInputCaptureCompositionEnd}
         onInput={handleInputCaptureInput}
