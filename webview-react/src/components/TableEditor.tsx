@@ -563,6 +563,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
       <input
         ref={inputCaptureRef}
         type="text"
+        className="input-capture"
         style={{
           position: 'absolute',
           opacity: 0,
