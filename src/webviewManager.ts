@@ -814,13 +814,14 @@ export class WebviewManager {
     /**
      * Handle add row
      */
-    private async handleAddRow(data: { index?: number; tableIndex?: number }, panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
+    private async handleAddRow(data: { index?: number; count?: number; tableIndex?: number }, panel: vscode.WebviewPanel, uri: vscode.Uri): Promise<void> {
         const actualPanelId = this.findPanelId(panel);
 
         vscode.commands.executeCommand('markdownTableEditor.internal.addRow', {
             uri: uri.toString(),
             panelId: actualPanelId,
             index: data?.index,
+            count: data?.count,
             tableIndex: data?.tableIndex
         });
     }

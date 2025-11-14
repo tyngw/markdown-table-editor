@@ -13,7 +13,7 @@ interface HeaderConfig {
 
 interface ContextMenuProps {
   menuState: ContextMenuState
-  onAddRow: (index?: number) => void
+  onAddRow: (index?: number, count?: number) => void
   onDeleteRow: (index: number) => void
   onDeleteRows?: (indices: number[]) => void
   onAddColumn: (index?: number) => void
@@ -64,17 +64,15 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   const handleAddRowAbove = () => {
     const selectedRows = getSelectedRows()
     const isCurrentRowFullySelected = isRowFullySelected(menuState.index)
-    
+
     if (selectedRows.size > 1 && isCurrentRowFullySelected) {
       // Multiple rows selected - add the same number of rows above the first selected row
       const selectedRowArray = Array.from(selectedRows).sort((a, b) => a - b)
       const firstRowIndex = selectedRowArray[0]
       const selectedRowCount = selectedRows.size
-      
-      // Add rows one by one at the same position (they'll stack up above)
-      for (let i = 0; i < selectedRowCount; i++) {
-        onAddRow(firstRowIndex)
-      }
+
+      // Add multiple rows at once using count parameter
+      onAddRow(firstRowIndex, selectedRowCount)
     } else {
       // Single row - add one row above
       onAddRow(menuState.index)
@@ -85,17 +83,15 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   const handleAddRowBelow = () => {
     const selectedRows = getSelectedRows()
     const isCurrentRowFullySelected = isRowFullySelected(menuState.index)
-    
+
     if (selectedRows.size > 1 && isCurrentRowFullySelected) {
       // Multiple rows selected - add the same number of rows below the last selected row
       const selectedRowArray = Array.from(selectedRows).sort((a, b) => b - a) // Sort descending
       const lastRowIndex = selectedRowArray[0] // Highest index
       const selectedRowCount = selectedRows.size
-      
-      // Add rows one by one after the last selected row
-      for (let i = 0; i < selectedRowCount; i++) {
-        onAddRow(lastRowIndex + 1)
-      }
+
+      // Add multiple rows at once using count parameter
+      onAddRow(lastRowIndex + 1, selectedRowCount)
     } else {
       // Single row - add one row below
       onAddRow(menuState.index + 1)

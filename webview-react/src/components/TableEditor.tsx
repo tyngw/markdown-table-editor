@@ -369,9 +369,17 @@ const TableEditor: React.FC<TableEditorProps> = ({
     onSendMessage({ command: 'updateHeader', data: withTableIndex({ col, value }) })
   }, [updateHeader, onSendMessage, withTableIndex])
 
-  const handleAddRow = useCallback((index?: number) => {
-    addRow(index)
-    onSendMessage({ command: 'addRow', data: withTableIndex({ index }) })
+  const handleAddRow = useCallback((index?: number, count?: number) => {
+    // Add rows locally (for immediate UI feedback)
+    if (count && count > 1) {
+      for (let i = 0; i < count; i++) {
+        addRow(index)
+      }
+    } else {
+      addRow(index)
+    }
+    // Send message to backend with count parameter
+    onSendMessage({ command: 'addRow', data: withTableIndex({ index, count }) })
   }, [addRow, onSendMessage, withTableIndex])
 
   const handleDeleteRows = useCallback((indices: number[]) => {
