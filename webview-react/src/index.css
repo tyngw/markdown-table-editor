@@ -419,7 +419,7 @@ body {
     transform: translateZ(0);
     cursor: pointer;
     text-align: center;
-    vertical-align: middle;
+    vertical-align: top;
     font-size: 16px;
     color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     padding: 4px;
