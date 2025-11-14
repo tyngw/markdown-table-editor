@@ -516,7 +516,7 @@ const TableEditor: React.FC<TableEditorProps> = ({
         left: `${rect.left}px`,
         top: `${rect.top}px`,
         width: `${rect.width}px`,
-        height: `${rect.height}px`,
+        minHeight: `${rect.height}px`,
         fontSize: computedStyle.fontSize,
         fontFamily: computedStyle.fontFamily,
         padding: '4px 6px', // CellEditorと同じパディング
@@ -528,7 +528,6 @@ const TableEditor: React.FC<TableEditorProps> = ({
         outline: 'none',
         resize: 'none',
         lineHeight: '1.2',
-        verticalAlign: 'top',
         textAlign: 'left',
         color: computedStyle.color,
         whiteSpace: 'pre-wrap',
