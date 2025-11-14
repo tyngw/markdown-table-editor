@@ -127,6 +127,7 @@ export interface UpdateHeaderData {
 
 export interface AddRowData {
   index?: number;
+  count?: number; // Number of rows to add (default: 1)
   tableIndex?: number;
 }
 

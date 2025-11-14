@@ -878,9 +878,13 @@ export function activate(context: vscode.ExtensionContext) {
     const addRowCommand = vscode.commands.registerCommand('markdownTableEditor.internal.addRow', async (data: any) => {
         await runTableEdit(data, {
             operationName: 'Add row',
-            getSuccessMessage: () => 'Row added successfully',
+            getSuccessMessage: () => {
+                const count = data?.data?.count || 1;
+                return count > 1 ? `${count} rows added successfully` : 'Row added successfully';
+            },
             mutate: ({ manager, commandData }) => {
-                manager.addRow(commandData?.index);
+                const count = commandData?.count || 1;
+                manager.addRow(commandData?.index, count);
             },
             getErrorMessage: (error) => `Failed to add row: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
