@@ -108,17 +108,27 @@ export class TableDataManager {
     }
 
     /**
-     * Add new row
+     * Add new row(s)
+     * @param index - The index at which to insert the row(s)
+     * @param count - The number of rows to add (default: 1)
      */
-    addRow(index?: number): void {
+    addRow(index?: number, count: number = 1): void {
         const insertIndex = index !== undefined ? index : this.tableData.rows.length;
 
         if (insertIndex < 0 || insertIndex > this.tableData.rows.length) {
             throw new Error(`Invalid row index: ${insertIndex}`);
         }
 
-        const newRow = new Array(this.tableData.headers.length).fill('');
-        this.tableData.rows.splice(insertIndex, 0, newRow);
+        if (count < 1) {
+            throw new Error(`Invalid count: ${count}. Count must be at least 1.`);
+        }
+
+        // Add multiple rows at once
+        const newRows: string[][] = [];
+        for (let i = 0; i < count; i++) {
+            newRows.push(new Array(this.tableData.headers.length).fill(''));
+        }
+        this.tableData.rows.splice(insertIndex, 0, ...newRows);
 
         this.updateMetadata();
         this.notifyChange();
