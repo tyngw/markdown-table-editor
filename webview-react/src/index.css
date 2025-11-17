@@ -449,8 +449,8 @@ body {
 
 .table-editor td.row-number.selected,
 .column-header.selected {
-    background: var(--vscode-list-activeSelectionBackground) !important;
-    color: var(--vscode-list-activeSelectionForeground) !important;
+    background: rgba(160, 120, 255, 0.3) !important;
+    color: var(--vscode-editor-foreground) !important;
     box-sizing: border-box !important;
     font-weight: 700 !important;
 }
@@ -550,8 +550,8 @@ td[data-temp-empty="true"] .cell-content {
 /* Anchor cell - full border on all sides */
 .table-editor td.data-cell.selected.anchor,
 .table-editor td.editable-cell.selected.anchor {
-    background-color: var(--vscode-list-activeSelectionBackground) !important;
-    color: var(--vscode-list-activeSelectionForeground) !important;
+    background-color: rgba(160, 120, 255, 0.3) !important;
+    color: var(--vscode-editor-foreground) !important;
     box-shadow: 0 0 0 2px var(--vscode-focusBorder) !important;
     box-sizing: border-box !important;
     min-height: 32px !important;
@@ -563,8 +563,8 @@ td[data-temp-empty="true"] .cell-content {
 /* Non-anchor selected cells - no border by default, only on edges */
 .table-editor td.data-cell.selected:not(.anchor),
 .table-editor td.editable-cell.selected:not(.anchor) {
-    background-color: var(--vscode-list-activeSelectionBackground) !important;
-    color: var(--vscode-list-activeSelectionForeground) !important;
+    background-color: rgba(160, 120, 255, 0.3) !important;
+    color: var(--vscode-editor-foreground) !important;
     box-shadow: none !important;
     box-sizing: border-box !important;
     min-height: 32px !important;
