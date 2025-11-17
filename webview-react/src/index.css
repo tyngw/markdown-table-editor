@@ -1357,16 +1357,16 @@ table.table-editor tbody tr td.data-cell.fill-range {
 /* ====== 19. 検索結果ハイライト ====== */
 table.table-editor tbody tr td.data-cell.search-result {
     /* ライトグリーンのハイライト */
-    background-color: var(--vscode-editor-findMatchBackground, rgba(150, 255, 150, 0.2));
-    box-shadow: 0 0 0 1px var(--vscode-editor-findMatchBorder, rgba(100, 200, 100, 0.4));
+    background-color: rgba(150, 255, 150, 0.2);
+    box-shadow: 0 0 0 1px rgba(100, 200, 100, 0.4);
     position: relative;
     z-index: 10;
 }
 
 table.table-editor tbody tr td.data-cell.current-search-result {
     /* 現在の検索結果は少し濃いめのハイライト */
-    background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(150, 255, 150, 0.3));
-    box-shadow: 0 0 0 2px var(--vscode-editor-findMatchHighlightBorder, rgba(100, 200, 100, 0.6));
+    background-color: rgba(150, 255, 150, 0.3);
+    box-shadow: 0 0 0 2px rgba(100, 200, 100, 0.6);
     position: relative;
     z-index: 10;
 }
@@ -1374,7 +1374,7 @@ table.table-editor tbody tr td.data-cell.current-search-result {
 table.table-editor tbody tr td.data-cell.selected.search-result {
     /* 選択中のセルは通常の選択色を優先し、枠線のみ追加 */
     background-color: var(--vscode-list-activeSelectionBackground);
-    box-shadow: 0 0 0 1px var(--vscode-editor-findMatchBorder, rgba(100, 200, 100, 0.5));
+    box-shadow: 0 0 0 1px rgba(100, 200, 100, 0.5);
     position: relative;
     z-index: 10;
 }
@@ -1382,7 +1382,7 @@ table.table-editor tbody tr td.data-cell.selected.search-result {
 table.table-editor tbody tr td.data-cell.selected.current-search-result {
     /* 選択中かつ現在の検索結果 */
     background-color: var(--vscode-list-activeSelectionBackground);
-    box-shadow: 0 0 0 2px var(--vscode-editor-findMatchHighlightBorder, rgba(100, 200, 100, 0.7));
+    box-shadow: 0 0 0 2px rgba(100, 200, 100, 0.7);
     position: relative;
     z-index: 10;
 }
