@@ -424,6 +424,9 @@ export function useKeyboardNavigation({
               }
             }
 
+            // Clear selection anchor to prevent it from interfering with extend mode
+            onSetSelectionAnchor(null)
+
             // Move anchor within selection range, maintaining the selection
             // Use extend=true to keep the selection range intact
             onCellSelect(nextRow, nextCol, true)
