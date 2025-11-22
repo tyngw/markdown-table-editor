@@ -745,11 +745,14 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             // Apply all updates using batchUpdateCells (supports row=-1 for header row)
+            console.log('Applying batch updates:', JSON.stringify(updates));
             tableDataManager.batchUpdateCells(updates);
 
             // Update the file once after all updates
             const updatedMarkdown = tableDataManager.serializeToMarkdown();
+            console.log('Serialized markdown:', updatedMarkdown);
             const tableData = tableDataManager.getTableData();
+            console.log('Table data after update:', JSON.stringify(tableData));
 
             const fileUri = vscode.Uri.parse(uriString);
             await fileHandler.updateTableByIndex(
