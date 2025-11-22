@@ -594,16 +594,16 @@ const TableEditor: React.FC<TableEditorProps> = ({
     }
   }, [isComposing])
 
-  // input-captureでのペーストを処理（編集モードに遷移せずにペースト実行）
+  // input-captureでのペーストを処理（編集モードに遷移を防止）
+  // 実際のペースト処理はuseKeyboardNavigationで行われる
   const handleInputCapturePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault()
     // textareaの値をクリア（inputイベントが発火しないように）
     if (e.currentTarget) {
       e.currentTarget.value = ''
     }
-    // 実際のペースト処理を実行
-    handlePaste()
-  }, [handlePaste])
+    // handlePaste()は呼ばない - useKeyboardNavigationで処理される
+  }, [])
 
   // 選択セルの位置にinputCaptureを配置
   const updateInputCapturePosition = useCallback(() => {
