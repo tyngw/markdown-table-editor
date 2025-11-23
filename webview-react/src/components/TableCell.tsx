@@ -162,9 +162,11 @@ const TableCell: React.FC<TableCellProps> = ({
             color: 'var(--vscode-input-foreground)',
             fontFamily: 'inherit',
             fontSize: 'inherit',
-            padding: '4px',
+            padding: '4px 6px',
+            lineHeight: '1.2',
             resize: 'none',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxSizing: 'border-box'
           }}
         />
       </td>
