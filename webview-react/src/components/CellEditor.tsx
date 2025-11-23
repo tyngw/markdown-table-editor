@@ -197,6 +197,25 @@ const CellEditor: React.FC<CellEditorProps> = ({
     return () => {
       textarea.removeEventListener('input', handleInput)
       textarea.removeEventListener('heightUpdate', handleHeightUpdate as EventListener)
+
+      // Clean up height-spacers and min-height styles when editing ends
+      const parentCell = textarea.closest('td[data-row][data-col]') as HTMLElement | null
+      const row = parentCell?.parentElement
+      if (row) {
+        const cells = row.querySelectorAll('td[data-col]')
+        cells.forEach((cell) => {
+          if (cell instanceof HTMLElement) {
+            // Remove spacer
+            const spacer = cell.querySelector('.height-spacer')
+            if (spacer) {
+              spacer.remove()
+            }
+            // Reset min-height
+            cell.style.minHeight = ''
+            delete cell.dataset.rowMaxHeight
+          }
+        })
+      }
     }
   }, [originalHeight, rowMaxHeight, isComposing, _rowIndex, _colIndex])
 

@@ -686,6 +686,7 @@ table.table-editor tbody tr td.editable-cell.editing {
     padding: 0;
     background-color: var(--vscode-input-background);
     outline: none;
+    box-shadow: none;
     box-sizing: border-box;
     height: auto;
     position: relative;
