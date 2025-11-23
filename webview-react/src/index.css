@@ -346,8 +346,6 @@ table.table-editor thead th:last-child {
 
 table.table-editor thead th.editing {
     background-color: var(--vscode-input-background);
-    outline: 1px solid var(--vscode-inputOption-activeBorder);
-    outline-offset: 0px;
 }
 
 table.table-editor thead th input.header-input {
@@ -686,8 +684,6 @@ table.table-editor tbody tr td.data-cell.editing,
 table.table-editor tbody tr td.editable-cell.editing {
     padding: 0;
     background-color: var(--vscode-input-background);
-    outline: 1px solid var(--vscode-inputOption-activeBorder);
-    outline-offset: 0px;
     box-sizing: border-box;
     height: auto;
     position: relative;
