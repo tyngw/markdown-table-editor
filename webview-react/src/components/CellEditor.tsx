@@ -25,7 +25,9 @@ const CellEditor: React.FC<CellEditorProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [currentValue, setCurrentValue] = useState(value)
   // シンプルなローカルUndo/Redoスタック
+  // @ts-ignore - Used in setHistory/setRedoStack callbacks
   const [history, setHistory] = useState<string[]>([value])
+  // @ts-ignore - Used in setHistory/setRedoStack callbacks
   const [redoStack, setRedoStack] = useState<string[]>([])
   const [isComposing, setIsComposing] = useState(false)
   // TableBody からの heightUpdate で受け取った実測値を保持
@@ -51,24 +53,22 @@ const CellEditor: React.FC<CellEditorProps> = ({
       const selectionEnd = textarea.selectionEnd
       const hadFocus = document.activeElement === textarea
 
+      // テキストエリアの高さをリセットして、コンテンツの実際の高さを取得
       textarea.style.height = 'auto'
       const contentHeight = textarea.scrollHeight
       const minHeight = 32
 
       // dataset もフォールバックとして参照（親 <td> の data-*）
       const parentCell = textarea.closest('td[data-row][data-col]') as HTMLElement | null
-      const dsOriginal = parentCell?.dataset?.originalHeight ? parseInt(parentCell.dataset.originalHeight, 10) : undefined
       const dsRowMax = parentCell?.dataset?.rowMaxHeight ? parseInt(parentCell.dataset.rowMaxHeight, 10) : undefined
 
       // 高さの決定ロジック：
-      // 仕様に加え、「編集中セルが最大になる場合」にも追随させるため
-      // finalHeight = max(minHeight, 既存の行最大高さ, 現在のコンテンツ高さ)
+      // finalHeight = max(minHeight, 行最大高さ, 現在のコンテンツ高さ)
       // 0 や NaN を排除した安全な値を選択
       const safe = (v: number | undefined, fallback: number) => (
         typeof v === 'number' && !Number.isNaN(v) && v > 0 ? v : fallback
       )
       const baseRowMax = safe(measuredRef.current.rowMax, safe(rowMaxHeight, safe(dsRowMax, minHeight)))
-      const baseOriginal = safe(measuredRef.current.original, safe(originalHeight, safe(dsOriginal, minHeight)))
       const finalHeight = Math.max(minHeight, baseRowMax, contentHeight)
 
       // data-multiline の付与は、finalHeight < contentHeight の場合のみ（通常は起きないが保険）
@@ -78,89 +78,28 @@ const CellEditor: React.FC<CellEditorProps> = ({
         textarea.removeAttribute('data-multiline')
       }
 
-
-
-      // いったん計算上の finalHeight を適用
+      // テキストエリアの高さを設定
       textarea.style.height = `${finalHeight}px`
 
       // 行内の他セルとも高さを同期（行の視覚的な一貫性を維持）
+      // 編集中のセルには height を、他のセルには min-height を設定
       try {
         const row = parentCell?.parentElement
         if (row) {
           const cells = row.querySelectorAll('td[data-col]')
           cells.forEach((cell) => {
             if (cell instanceof HTMLElement) {
-              // min-height は環境によって table-cell に効かない場合があるため、
-              // 不可視のスペーサー DOM を挿入して高さを確実に確保する
-              cell.style.minHeight = `${finalHeight}px`
+              if (cell === parentCell) {
+                // 編集中のセルには height を直接設定（テーブルレイアウトでも確実に高さを確保）
+                cell.style.height = `${finalHeight}px`
+                cell.style.minHeight = `${finalHeight}px`
+              } else {
+                // 他のセルには min-height のみ設定
+                cell.style.minHeight = `${finalHeight}px`
+              }
               cell.dataset.rowMaxHeight = String(finalHeight)
-
-              let spacer = cell.querySelector('.height-spacer') as HTMLDivElement | null
-              if (!spacer) {
-                spacer = document.createElement('div')
-                spacer.className = 'height-spacer'
-                spacer.setAttribute('aria-hidden', 'true')
-                spacer.style.display = 'block'
-                spacer.style.pointerEvents = 'none'
-                spacer.style.opacity = '0'
-                spacer.style.margin = '0'
-                spacer.style.padding = '0'
-                spacer.style.border = '0'
-                spacer.style.width = '100%'
-                // テキストエリアは絶対配置(z-index:5)のため、編集中セルは先頭に、
-                // 非編集中セルは末尾に入れてコンテンツの上揃えを維持する
-                if (cell === parentCell) {
-                  cell.insertBefore(spacer, cell.firstChild)
-                } else {
-                  cell.appendChild(spacer)
-                }
-              }
-              // 既存スペーサーの位置が期待と異なる場合は差し替え
-              else {
-                const shouldBeFirst = cell === parentCell
-                const isFirst = spacer.previousSibling === null
-                if (shouldBeFirst && !isFirst) {
-                  cell.removeChild(spacer)
-                  cell.insertBefore(spacer, cell.firstChild)
-                } else if (!shouldBeFirst && spacer.nextSibling === null) {
-                  // 既に末尾なら何もしない
-                } else if (!shouldBeFirst) {
-                  // 末尾でなければ付け替え
-                  cell.removeChild(spacer)
-                  cell.appendChild(spacer)
-                }
-              }
-              // セル内の実コンテンツ高さを測定し、不足分のみスペーサーで埋める
-              let contentHeight = 0
-              try {
-                const contentEl = cell.querySelector('.cell-content') as HTMLElement | null
-                if (contentEl) {
-                  contentHeight = contentEl.offsetHeight
-                  if (!contentHeight || contentHeight <= 0) {
-                    const r = contentEl.getBoundingClientRect()
-                    contentHeight = (r && r.height) ? Math.ceil(r.height) : (contentEl.clientHeight || 0)
-                  }
-                } else {
-                  // 編集中セルは .cell-content が存在しないため 0 とする
-                  contentHeight = 0
-                }
-              } catch (_) { /* noop */ }
-              const needed = Math.max(0, finalHeight - contentHeight)
-              spacer.style.height = `${needed}px`
             }
           })
-          // スペーサー/スタイル反映直後の実高さを測定し、テキストエリア高さを厳密に一致させる
-          try {
-            // 強制リフロー（読み取りのみで十分）
-            void parentCell?.offsetHeight
-            let measured = parentCell?.offsetHeight || 0
-            if (!measured || measured <= 0) {
-              const r = parentCell?.getBoundingClientRect()
-              measured = r && r.height ? Math.ceil(r.height) : 0
-            }
-            const effective = measured > 0 ? measured : finalHeight
-            textarea.style.height = `${effective}px`
-          } catch (_) { /* noop */ }
         }
       } catch (_) { /* noop */ }
 

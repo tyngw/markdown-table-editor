@@ -30,6 +30,7 @@ function cleanupRowVisualState(rowElement: HTMLElement | null): void {
   if (!rowElement) {
     return
   }
+  // スペーサーDIVを削除（もう使用していないが、過去のものが残っている可能性があるため）
   rowElement.querySelectorAll('.height-spacer').forEach((el) => {
     const parent = el.parentElement
     if (parent) {
@@ -37,6 +38,7 @@ function cleanupRowVisualState(rowElement: HTMLElement | null): void {
     }
   })
 
+  // 編集終了後は行の高さをリセット（通常の自動高さに戻す）
   rowElement.querySelectorAll('td[data-col]').forEach((td) => {
     if (td instanceof HTMLElement) {
       td.style.minHeight = ''

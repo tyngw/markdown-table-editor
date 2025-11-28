@@ -120,13 +120,13 @@ const TableBody: React.FC<TableBodyProps> = ({
     console.debug('[TableBody] startCellEdit called', { row, col })
     // 編集開始前に行全体の高さ情報を測定
   const measuredHeights = { original: 0, maxInRow: 0, rowCellHeights: [] as number[] }
-    
+
     try {
       const rowElement = document.querySelector(`tr[data-row="${row}"]`)
       if (rowElement) {
         const rowCells = rowElement.querySelectorAll('td[data-col]')
         const cellHeights: number[] = []
-        
+
         rowCells.forEach((cellElement) => {
           if (cellElement instanceof HTMLElement) {
             const cellCol = parseInt(cellElement.dataset.col || '0', 10)
@@ -142,14 +142,14 @@ const TableBody: React.FC<TableBodyProps> = ({
               }
             }
             cellHeights.push(cellHeight)
-            
+
             // 編集対象のセルの元の高さを記録
             if (cellCol === col) {
               measuredHeights.original = cellHeight
             }
           }
         })
-        
+
         // 行内の最大高さを取得
         measuredHeights.maxInRow = Math.max(...cellHeights, 32) // 最小32px
         // original が 0/未測定になりうるケースに備えフォールバック（ログや初回反映の安定化）
@@ -157,7 +157,7 @@ const TableBody: React.FC<TableBodyProps> = ({
           measuredHeights.original = Math.max(32, measuredHeights.maxInRow)
         }
         measuredHeights.rowCellHeights = cellHeights
-        
+
         console.log('TableBody height measurement before edit:', {
           row,
           col,
@@ -184,9 +184,9 @@ const TableBody: React.FC<TableBodyProps> = ({
 
         // 初回レンダリングで参照されるよう、先に保存
         try {
-          savedHeightsRef.current.set(`${row}-${col}`, { 
-            original: measuredHeights.original, 
-            rowMax: measuredHeights.maxInRow 
+          savedHeightsRef.current.set(`${row}-${col}`, {
+            original: measuredHeights.original,
+            rowMax: measuredHeights.maxInRow
           })
         } catch (_) { /* noop */ }
       }
@@ -208,11 +208,11 @@ const TableBody: React.FC<TableBodyProps> = ({
           // 測定した高さ情報を保存
           cellElement.dataset.originalHeight = measuredHeights.original.toString()
           cellElement.dataset.rowMaxHeight = measuredHeights.maxInRow.toString()
-          savedHeightsRef.current.set(`${row}-${col}`, { 
-            original: measuredHeights.original, 
-            rowMax: measuredHeights.maxInRow 
+          savedHeightsRef.current.set(`${row}-${col}`, {
+            original: measuredHeights.original,
+            rowMax: measuredHeights.maxInRow
           })
-          
+
           // エディターに高さ更新を通知
           const editorTextarea = cellElement.querySelector('textarea')
           if (editorTextarea instanceof HTMLTextAreaElement) {
