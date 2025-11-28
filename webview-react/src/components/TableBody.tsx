@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { EditorState, CellPosition, HeaderConfig } from '../types'
-import { processCellContent, processCellContentForEditing, processCellContentForStorage } from '../utils/contentConverter'
-import CellEditor from './CellEditor'
-import { getColumnLetter } from '../utils/tableUtils'
+import { processCellContentForStorage } from '../utils/contentConverter'
 import { cleanupCellVisualArtifacts, queryCellElement } from '../utils/cellDomUtils'
+import MemoizedCell from './MemoizedCell'
 
 interface TableBodyProps {
   headers: string[]
@@ -419,9 +418,6 @@ const TableBody: React.FC<TableBodyProps> = ({
               if (headerConfig?.hasRowHeaders && colIndex === 0) {
                 return null
               }
-              const cellId = `cell-${rowIndex}-${colIndex}`
-              const isEmpty = !cell || cell.trim() === ''
-              const cellClass = isEmpty ? 'empty-cell' : ''
               const storedWidth = editorState.columnWidths[colIndex] || 150
               const isEditing = isCellEditing(rowIndex, colIndex)
               const isSelected = isCellSelected(rowIndex, colIndex)
@@ -431,72 +427,37 @@ const TableBody: React.FC<TableBodyProps> = ({
               const showFillHandle = isBottomRightCell(rowIndex, colIndex) && !isEditing
               const isSResult = isSearchResult ? isSearchResult(rowIndex, colIndex) : false
               const isCSResult = isCurrentSearchResult ? isCurrentSearchResult(rowIndex, colIndex) : false
-              const widthStyle = {
-                width: `${storedWidth}px`,
-                minWidth: `${storedWidth}px`,
-                maxWidth: `${storedWidth}px`
-              }
-
-              const userResizedClass = editorState.columnWidths[colIndex] && editorState.columnWidths[colIndex] !== 150 ? 'user-resized' : ''
+              const userResized = !!(editorState.columnWidths[colIndex] && editorState.columnWidths[colIndex] !== 150)
               const isSingleSelection = isSingleCellSelection()
+              const savedHeight = savedHeightsRef.current.get(`${rowIndex}-${colIndex}`)
 
               return (
-                <td
+                <MemoizedCell
                   key={colIndex}
-                  id={cellId}
-                  className={`data-cell ${cellClass} ${userResizedClass} ${isSelected ? (isAnchor ? `selected anchor ${isSingleSelection ? 'single-selection' : ''}` : `selected ${isSingleSelection ? 'single-selection' : ''} ${borders.top ? 'border-top' : ''} ${borders.bottom ? 'border-bottom' : ''} ${borders.left ? 'border-left' : ''} ${borders.right ? 'border-right' : ''}`.trim()) : ''} ${isEditing ? 'editing' : ''} ${isInFillRange ? 'fill-range' : ''} ${isSResult ? 'search-result' : ''} ${isCSResult ? 'current-search-result' : ''}`}
-                  onMouseDown={(e) => handleCellMouseDown(rowIndex, colIndex, e)}
-                  onDoubleClick={() => startCellEdit(rowIndex, colIndex)}
-                  data-row={rowIndex}
-                  data-col={colIndex}
-                  style={{
-                    ...widthStyle,
-                    ...(isEditing
-                      ? {
-                          // 編集時はmaxHeightを解除して自由に拡張できるようにする
-                          minHeight: (savedHeightsRef.current.get(`${rowIndex}-${colIndex}`)?.rowMax || 32) + 'px',
-                          height: 'auto',
-                          maxHeight: 'none'
-                        }
-                      : {})
-                  }}
-                  title={`Cell ${getColumnLetter(colIndex)}${displayRowNumber}`}
-                >
-                  {isEditing ? (
-                    <CellEditor
-                      value={initialCellInput ?? processCellContentForEditing(cell || '')}
-                      onCommit={(value, move) => commitCellEdit(rowIndex, colIndex, value, move)}
-                      onCancel={() => {
-                        if (editorState.currentEditingCell) {
-                          cancelCellEdit(editorState.currentEditingCell.row, editorState.currentEditingCell.col)
-                        } else {
-                          onCellEdit(null)
-                        }
-                      }}
-                      rowIndex={rowIndex}
-                      colIndex={colIndex}
-                      originalHeight={savedHeightsRef.current.get(`${rowIndex}-${colIndex}`)?.original}
-                      rowMaxHeight={savedHeightsRef.current.get(`${rowIndex}-${colIndex}`)?.rowMax}
-                    />
-                  ) : (
-                    <>
-                      <div className="cell-content">
-                        {cell && cell.trim() !== '' ? (
-                          <span dangerouslySetInnerHTML={{ __html: processCellContent(cell) }} />
-                        ) : (
-                          <span className="empty-cell-placeholder">&nbsp;</span>
-                        )}
-                      </div>
-                      {showFillHandle && onFillHandleMouseDown && (
-                        <div
-                          className="fill-handle"
-                          onMouseDown={onFillHandleMouseDown}
-                          title="ドラッグしてオートフィル"
-                        />
-                      )}
-                    </>
-                  )}
-                </td>
+                  rowIndex={rowIndex}
+                  colIndex={colIndex}
+                  cell={cell}
+                  isSelected={isSelected}
+                  isAnchor={isAnchor}
+                  isSingleSelection={isSingleSelection}
+                  borders={borders}
+                  isEditing={isEditing}
+                  isInFillRange={isInFillRange}
+                  isSearchResult={isSResult}
+                  isCurrentSearchResult={isCSResult}
+                  showFillHandle={showFillHandle}
+                  storedWidth={storedWidth}
+                  userResized={userResized}
+                  displayRowNumber={displayRowNumber}
+                  headerConfig={headerConfig}
+                  initialCellInput={isEditing ? initialCellInput : null}
+                  savedHeight={savedHeight}
+                  onMouseDown={handleCellMouseDown}
+                  onDoubleClick={startCellEdit}
+                  onCommitEdit={commitCellEdit}
+                  onCancelEdit={cancelCellEdit}
+                  onFillHandleMouseDown={onFillHandleMouseDown}
+                />
               )
             })}
           </tr>
