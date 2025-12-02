@@ -1,6 +1,6 @@
-# Markdown Table Editor
+# Interactive Markdown Table Editor
 
-Markdown Table Editor は、Markdownで記述されたテーブルを直感的に編集できるVSCode拡張機能です。
+Interactive Markdown Table Editor は、Markdownで記述されたテーブルを直感的に編集できるVSCode拡張機能です。
 
 ## クイックスタート
 

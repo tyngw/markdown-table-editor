@@ -1,6 +1,6 @@
-# Markdown Table Editor
+# Interactive Markdown Table Editor
 
-A VS Code extension that provides a spreadsheet-like interface for editing Markdown tables.
+A VS Code extension that provides an intuitive interface for editing Markdown tables.
 
 ## Quick Start
 
