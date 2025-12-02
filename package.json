@@ -1,12 +1,12 @@
 {
-  "name": "markdown-table-editor",
-  "displayName": "Markdown Table Editor",
+  "name": "interactive-markdown-table-editor",
+  "displayName": "Interactive Markdown Table Editor",
   "description": "Edit Markdown tables with a spreadsheet-like interface",
   "version": "0.13.1",
   "publisher": "tyngw",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tyngw/markdown-table-editor.git"
+    "url": "https://github.com/tyngw/interactive-markdown-table-editor.git"
   },
   "license": "MIT",
   "icon": "icon.png",
